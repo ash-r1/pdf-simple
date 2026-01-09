@@ -78,8 +78,6 @@ export class PdfDocumentImpl implements PdfDocument {
     const loadingTask = pdfjsLib.getDocument({
       data,
       isEvalSupported: false,
-      useWorkerFetch: false,
-      disableAutoFetch: true,
       cMapUrl: options.cMapPath ?? getCMapUrl(),
       cMapPacked: true,
       standardFontDataUrl: options.standardFontPath ?? getStandardFontDataUrl(),
@@ -342,9 +340,7 @@ async function resolveInput(input: PdfInput): Promise<Uint8Array> {
   }
 
   if (input instanceof Uint8Array) {
-    // Create a copy of the data to avoid issues with detached ArrayBuffers
-    // and structuredClone in pdfjs-dist's LoopbackPort
-    return input.slice();
+    return input;
   }
 
   if (input instanceof ArrayBuffer) {
