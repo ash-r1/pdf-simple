@@ -13,7 +13,8 @@ try {
 }
 
 // Only run tests if canvas is available
-const describeWithCanvas = canvasAvailable ? describe : describe.skip;
+type DescribeFn = typeof describe;
+const describeWithCanvas: DescribeFn = canvasAvailable ? describe : describe.skip;
 
 // Generate test PDFs
 let singlePagePdf: Uint8Array;
