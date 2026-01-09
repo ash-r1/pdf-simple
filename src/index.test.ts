@@ -13,11 +13,22 @@ try {
 }
 
 // Only run tests if canvas is available
-const describeWithCanvas = canvasAvailable ? describe : describe.skip;
+type DescribeFn = typeof describe;
+const describeWithCanvas: DescribeFn = canvasAvailable ? describe : describe.skip;
 
-// Generate test PDFs
-let singlePagePdf: Uint8Array;
-let multiPagePdf: Uint8Array;
+// Store PDF data as Buffer to avoid ArrayBuffer detachment issues
+// pdfjs-dist may detach ArrayBuffers during processing, so we need fresh copies for each test
+let singlePagePdfBuffer: Buffer;
+let multiPagePdfBuffer: Buffer;
+
+// Helper functions to get fresh Uint8Array copies for each test
+function getSinglePagePdf(): Uint8Array {
+  return new Uint8Array(singlePagePdfBuffer);
+}
+
+function getMultiPagePdf(): Uint8Array {
+  return new Uint8Array(multiPagePdfBuffer);
+}
 
 beforeAll(async () => {
   // Create a single page PDF
@@ -28,7 +39,7 @@ beforeAll(async () => {
     y: 700,
     size: 30,
   });
-  singlePagePdf = await doc1.save();
+  singlePagePdfBuffer = Buffer.from(await doc1.save());
 
   // Create a multi-page PDF
   const doc2 = await PDFDocument.create();
@@ -47,27 +58,28 @@ beforeAll(async () => {
       color: rgb(i * 0.2, 0.5, 1 - i * 0.1),
     });
   }
-  multiPagePdf = await doc2.save();
+  multiPagePdfBuffer = Buffer.from(await doc2.save());
 });
 
 describeWithCanvas('openPdf', () => {
   it('should open a PDF from Uint8Array', async () => {
     const { openPdf } = await import('./index.js');
-    const pdf = await openPdf(singlePagePdf);
+    const pdf = await openPdf(getSinglePagePdf());
     expect(pdf.pageCount).toBe(1);
     await pdf.close();
   });
 
   it('should open a PDF from Buffer', async () => {
     const { openPdf } = await import('./index.js');
-    const pdf = await openPdf(Buffer.from(singlePagePdf));
+    const pdf = await openPdf(singlePagePdfBuffer);
     expect(pdf.pageCount).toBe(1);
     await pdf.close();
   });
 
   it('should open a PDF from ArrayBuffer', async () => {
     const { openPdf } = await import('./index.js');
-    const pdf = await openPdf(singlePagePdf.buffer);
+    const pdfData = getSinglePagePdf();
+    const pdf = await openPdf(pdfData.buffer);
     expect(pdf.pageCount).toBe(1);
     await pdf.close();
   });
@@ -93,14 +105,14 @@ describeWithCanvas('openPdf', () => {
 describeWithCanvas('pageCount', () => {
   it('should return correct page count for single page PDF', async () => {
     const { openPdf } = await import('./index.js');
-    const pdf = await openPdf(singlePagePdf);
+    const pdf = await openPdf(getSinglePagePdf());
     expect(pdf.pageCount).toBe(1);
     await pdf.close();
   });
 
   it('should return correct page count for multi-page PDF', async () => {
     const { openPdf } = await import('./index.js');
-    const pdf = await openPdf(multiPagePdf);
+    const pdf = await openPdf(getMultiPagePdf());
     expect(pdf.pageCount).toBe(5);
     await pdf.close();
   });
@@ -109,7 +121,7 @@ describeWithCanvas('pageCount', () => {
 describeWithCanvas('renderPage', () => {
   it('should render a single page to JPEG', async () => {
     const { openPdf } = await import('./index.js');
-    const pdf = await openPdf(singlePagePdf);
+    const pdf = await openPdf(getSinglePagePdf());
     const page = await pdf.renderPage(1);
 
     expect(page.pageNumber).toBe(1);
@@ -127,7 +139,7 @@ describeWithCanvas('renderPage', () => {
 
   it('should render a single page to PNG', async () => {
     const { openPdf } = await import('./index.js');
-    const pdf = await openPdf(singlePagePdf);
+    const pdf = await openPdf(getSinglePagePdf());
     const page = await pdf.renderPage(1, { format: 'png' });
 
     expect(page.buffer).toBeInstanceOf(Buffer);
@@ -143,7 +155,7 @@ describeWithCanvas('renderPage', () => {
 
   it('should respect scale option', async () => {
     const { openPdf } = await import('./index.js');
-    const pdf = await openPdf(singlePagePdf);
+    const pdf = await openPdf(getSinglePagePdf());
 
     const page1 = await pdf.renderPage(1, { scale: 1.0 });
     const page2 = await pdf.renderPage(1, { scale: 2.0 });
@@ -156,7 +168,7 @@ describeWithCanvas('renderPage', () => {
 
   it('should throw INVALID_PAGE_NUMBER for invalid page', async () => {
     const { openPdf } = await import('./index.js');
-    const pdf = await openPdf(singlePagePdf);
+    const pdf = await openPdf(getSinglePagePdf());
 
     await expect(pdf.renderPage(0)).rejects.toMatchObject({
       code: 'INVALID_PAGE_NUMBER',
@@ -172,7 +184,7 @@ describeWithCanvas('renderPage', () => {
 describeWithCanvas('renderPages', () => {
   it('should render all pages using async generator', async () => {
     const { openPdf } = await import('./index.js');
-    const pdf = await openPdf(multiPagePdf);
+    const pdf = await openPdf(getMultiPagePdf());
     const pages: { pageNumber: number; buffer: Buffer }[] = [];
 
     for await (const page of pdf.renderPages()) {
@@ -193,7 +205,7 @@ describeWithCanvas('renderPages', () => {
 
   it('should render specific pages using array', async () => {
     const { openPdf } = await import('./index.js');
-    const pdf = await openPdf(multiPagePdf);
+    const pdf = await openPdf(getMultiPagePdf());
     const pages: number[] = [];
 
     for await (const page of pdf.renderPages({ pages: [1, 3, 5] })) {
@@ -206,7 +218,7 @@ describeWithCanvas('renderPages', () => {
 
   it('should render page range', async () => {
     const { openPdf } = await import('./index.js');
-    const pdf = await openPdf(multiPagePdf);
+    const pdf = await openPdf(getMultiPagePdf());
     const pages: number[] = [];
 
     for await (const page of pdf.renderPages({ pages: { start: 2, end: 4 } })) {
@@ -223,7 +235,7 @@ describeWithCanvas('renderPdfPages', () => {
     const { renderPdfPages } = await import('./index.js');
     const pages: number[] = [];
 
-    for await (const page of renderPdfPages(multiPagePdf)) {
+    for await (const page of renderPdfPages(getMultiPagePdf())) {
       pages.push(page.pageNumber);
     }
 
@@ -234,7 +246,7 @@ describeWithCanvas('renderPdfPages', () => {
 describeWithCanvas('getPageCount', () => {
   it('should return page count without rendering', async () => {
     const { getPageCount } = await import('./index.js');
-    const count = await getPageCount(multiPagePdf);
+    const count = await getPageCount(getMultiPagePdf());
     expect(count).toBe(5);
   });
 });
@@ -243,7 +255,7 @@ describeWithCanvas('AsyncDisposable', () => {
   it('should support await using syntax', async () => {
     const { openPdf } = await import('./index.js');
     // Using manual Symbol.asyncDispose for compatibility
-    const pdf = await openPdf(singlePagePdf);
+    const pdf = await openPdf(getSinglePagePdf());
     expect(pdf.pageCount).toBe(1);
     await pdf[Symbol.asyncDispose]();
   });
@@ -252,7 +264,7 @@ describeWithCanvas('AsyncDisposable', () => {
 describeWithCanvas('document lifecycle', () => {
   it('should throw DOCUMENT_CLOSED after close', async () => {
     const { openPdf, PdfError } = await import('./index.js');
-    const pdf = await openPdf(singlePagePdf);
+    const pdf = await openPdf(getSinglePagePdf());
     await pdf.close();
 
     expect(() => pdf.pageCount).toThrow(PdfError);
@@ -261,7 +273,7 @@ describeWithCanvas('document lifecycle', () => {
 
   it('should be safe to call close multiple times', async () => {
     const { openPdf } = await import('./index.js');
-    const pdf = await openPdf(singlePagePdf);
+    const pdf = await openPdf(getSinglePagePdf());
     await pdf.close();
     await pdf.close(); // Should not throw
   });
