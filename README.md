@@ -1,25 +1,27 @@
 # pdf-simple
 
-Node.js 向けのシンプルで効率的な PDF 変換ライブラリです。PDF ページを画像（JPEG/PNG）に変換できます。
+[日本語版 README](./README_ja.md)
 
-## 特徴
+A simple and efficient PDF conversion library for Node.js. Convert PDF pages to images (JPEG/PNG).
 
-- シンプルな API - `openPdf()` でPDFを開き、`renderPages()` で画像に変換
-- メモリ効率 - AsyncGenerator を使用した1ページずつの処理
-- 日本語・CJK フォント対応 - pdfjs-dist の CMap を自動検出
-- TypeScript 完全対応 - 型定義付き
-- ESM / CommonJS 両対応
-- `await using` 構文対応（ES2024 AsyncDisposable）
+## Features
 
-## インストール
+- Simple API - Open PDFs with `openPdf()` and convert to images with `renderPages()`
+- Memory efficient - Process one page at a time using AsyncGenerator
+- Japanese/CJK font support - Automatic CMap detection from pdfjs-dist
+- Full TypeScript support - Includes type definitions
+- ESM / CommonJS compatible
+- `await using` syntax support (ES2024 AsyncDisposable)
+
+## Installation
 
 ```bash
 npm install pdf-simple
 ```
 
-### 必須依存
+### Required Dependencies
 
-このライブラリは [canvas](https://github.com/Automattic/node-canvas) を peer dependency として必要とします。システムに以下の依存関係をインストールしてください：
+This library requires [canvas](https://github.com/Automattic/node-canvas) as a peer dependency. Install the following system dependencies:
 
 **macOS:**
 ```bash
@@ -36,63 +38,63 @@ sudo apt-get install build-essential libcairo2-dev libpango1.0-dev libjpeg-dev l
 apk add build-base g++ cairo-dev jpeg-dev pango-dev giflib-dev
 ```
 
-## 使用方法
+## Usage
 
-### 基本的な使い方
+### Basic Usage
 
 ```typescript
 import { openPdf } from 'pdf-simple'
 import fs from 'node:fs/promises'
 
-// PDFを開く
+// Open a PDF
 const pdf = await openPdf('/path/to/document.pdf')
-console.log(`ページ数: ${pdf.pageCount}`)
+console.log(`Page count: ${pdf.pageCount}`)
 
-// 全ページを画像に変換
+// Convert all pages to images
 for await (const page of pdf.renderPages({ format: 'jpeg', scale: 1.5 })) {
-  console.log(`${page.pageNumber}/${page.totalPages} ページを変換中...`)
+  console.log(`Converting page ${page.pageNumber}/${page.totalPages}...`)
   await fs.writeFile(`page-${page.pageNumber}.jpg`, page.buffer)
 }
 
-// 完了後は必ず閉じる
+// Always close when done
 await pdf.close()
 ```
 
-### await using 構文（ES2024）
+### await using Syntax (ES2024)
 
 ```typescript
 import { openPdf } from 'pdf-simple'
 
-// await using を使えば自動でクローズされる
+// Using await using automatically closes the PDF
 await using pdf = await openPdf('/path/to/document.pdf')
 
 for await (const page of pdf.renderPages()) {
   // ...
 }
-// スコープ終了時に自動でクローズ
+// Automatically closed when scope ends
 ```
 
-### 便利関数
+### Convenience Functions
 
 ```typescript
 import { renderPdfPages, getPageCount } from 'pdf-simple'
 
-// 1行で全ページを変換（自動でクローズ）
+// Convert all pages in one line (auto-closes)
 for await (const page of renderPdfPages('/path/to/document.pdf', { scale: 2 })) {
   await fs.writeFile(`page-${page.pageNumber}.jpg`, page.buffer)
 }
 
-// ページ数だけを取得
+// Get only the page count
 const count = await getPageCount('/path/to/document.pdf')
-console.log(`${count} ページ`)
+console.log(`${count} pages`)
 ```
 
-### 様々な入力形式
+### Various Input Formats
 
 ```typescript
 import { openPdf } from 'pdf-simple'
 
-// ファイルパス
+// File path
 const pdf1 = await openPdf('/path/to/document.pdf')
 
 // Buffer
@@ -104,34 +106,34 @@ const response = await fetch('https://example.com/document.pdf')
 const data = new Uint8Array(await response.arrayBuffer())
 const pdf3 = await openPdf(data)
 
-// パスワード付きPDF
+// Password-protected PDF
 const pdf4 = await openPdf('/path/to/encrypted.pdf', { password: 'secret' })
 ```
 
-### 特定ページの変換
+### Converting Specific Pages
 
 ```typescript
-// 単一ページを変換
+// Convert a single page
 const page = await pdf.renderPage(1)
 
-// 特定のページ番号を指定
+// Specify page numbers
 for await (const page of pdf.renderPages({ pages: [1, 3, 5] })) {
-  // 1, 3, 5 ページのみ変換
+  // Converts only pages 1, 3, 5
 }
 
-// ページ範囲を指定
+// Specify page range
 for await (const page of pdf.renderPages({ pages: { start: 2, end: 4 } })) {
-  // 2〜4 ページを変換
+  // Converts pages 2-4
 }
 ```
 
-### レンダリングオプション
+### Rendering Options
 
 ```typescript
 const options = {
-  scale: 2.0,      // スケール（デフォルト: 1.5）
-  format: 'png',   // 'jpeg' または 'png'（デフォルト: 'jpeg'）
-  quality: 0.9,    // JPEG品質 0-1（デフォルト: 0.85）
+  scale: 2.0,      // Scale factor (default: 1.5)
+  format: 'png',   // 'jpeg' or 'png' (default: 'jpeg')
+  quality: 0.9,    // JPEG quality 0-1 (default: 0.85)
 }
 
 for await (const page of pdf.renderPages(options)) {
@@ -143,12 +145,12 @@ for await (const page of pdf.renderPages(options)) {
 
 ### `openPdf(input, options?)`
 
-PDFドキュメントを開きます。
+Opens a PDF document.
 
-- `input`: `string | Buffer | Uint8Array | ArrayBuffer` - ファイルパスまたはバイナリデータ
-- `options.password?`: `string` - 暗号化PDFのパスワード
-- `options.cMapPath?`: `string` - CMapファイルへのカスタムパス
-- `options.standardFontPath?`: `string` - 標準フォントファイルへのカスタムパス
+- `input`: `string | Buffer | Uint8Array | ArrayBuffer` - File path or binary data
+- `options.password?`: `string` - Password for encrypted PDFs
+- `options.cMapPath?`: `string` - Custom path to CMap files
+- `options.standardFontPath?`: `string` - Custom path to standard font files
 
 ### `PdfDocument`
 
@@ -165,15 +167,15 @@ interface PdfDocument {
 
 ```typescript
 interface RenderedPage {
-  pageNumber: number      // ページ番号（1始まり）
-  totalPages: number      // 総ページ数
-  buffer: Buffer          // 画像データ
-  width: number           // 幅（ピクセル）
-  height: number          // 高さ（ピクセル）
+  pageNumber: number      // Page number (1-based)
+  totalPages: number      // Total number of pages
+  buffer: Buffer          // Image data
+  width: number           // Width in pixels
+  height: number          // Height in pixels
 }
 ```
 
-### エラーハンドリング
+### Error Handling
 
 ```typescript
 import { openPdf, PdfError } from 'pdf-simple'
@@ -184,16 +186,16 @@ try {
   if (error instanceof PdfError) {
     switch (error.code) {
       case 'FILE_NOT_FOUND':
-        console.error('ファイルが見つかりません')
+        console.error('File not found')
         break
       case 'INVALID_PDF':
-        console.error('無効なPDFファイルです')
+        console.error('Invalid PDF file')
         break
       case 'PASSWORD_REQUIRED':
-        console.error('パスワードが必要です')
+        console.error('Password required')
         break
       case 'INVALID_PASSWORD':
-        console.error('パスワードが間違っています')
+        console.error('Invalid password')
         break
       default:
         console.error(error.message)
@@ -202,11 +204,11 @@ try {
 }
 ```
 
-## 動作環境
+## Requirements
 
 - Node.js >= 20.0.0
-- canvas のネイティブ依存関係（上記参照）
+- Native dependencies for canvas (see above)
 
-## ライセンス
+## License
 
 MIT
