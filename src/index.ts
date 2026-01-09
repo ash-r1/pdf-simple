@@ -45,6 +45,8 @@ export const VERSION = '0.0.1';
 
 // Re-export types
 export type {
+  FontErrorType,
+  FontWarning,
   PageRange,
   PdfDocument,
   PdfErrorCode,
@@ -54,8 +56,18 @@ export type {
   RenderFormat,
   RenderOptions,
 } from './types.js';
-// Re-export error class and type
-export { PdfError } from './types.js';
+// Re-export error classes
+export {
+  CffFontError,
+  FontError,
+  GeneralFontError,
+  GlyphError,
+  PdfError,
+  TrueTypeFontError,
+  Type1FontError,
+  Type3FontError,
+  XfaFontError,
+} from './types.js';
 
 /**
  * Open a PDF document from a file path, Buffer, Uint8Array, or ArrayBuffer

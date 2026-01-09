@@ -16,6 +16,8 @@ import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 import { DEFAULT_RENDER_OPTIONS, getCMapUrl, getStandardFontDataUrl } from './config.js';
 import type {
+  FontErrorType,
+  FontWarning,
   PageRange,
   PdfDocument,
   PdfInput,
@@ -23,7 +25,235 @@ import type {
   RenderedPage,
   RenderOptions,
 } from './types.js';
-import { PdfError } from './types.js';
+import {
+  CffFontError,
+  FontError,
+  GeneralFontError,
+  GlyphError,
+  PdfError,
+  TrueTypeFontError,
+  Type1FontError,
+  Type3FontError,
+  XfaFontError,
+} from './types.js';
+
+/**
+ * Patterns for detecting font-related warnings from pdfjs-dist.
+ * @internal
+ */
+const FONT_WARNING_PATTERNS: Array<{ pattern: RegExp; type: FontErrorType }> = [
+  // TrueType patterns
+  { pattern: /TT:\s+/i, type: 'TRUETYPE' },
+  { pattern: /TrueType Collection/i, type: 'TRUETYPE' },
+
+  // CFF patterns
+  { pattern: /CFF\s+/i, type: 'CFF' },
+  { pattern: /CFFParser/i, type: 'CFF' },
+  { pattern: /CFFDict/i, type: 'CFF' },
+  { pattern: /charstrings/i, type: 'CFF' },
+  { pattern: /Invalid fd index/i, type: 'CFF' },
+
+  // Type1 patterns
+  { pattern: /Type1 font/i, type: 'TYPE1' },
+  { pattern: /"Length1" property/i, type: 'TYPE1' },
+
+  // Type3 patterns
+  { pattern: /Type3 character/i, type: 'TYPE3' },
+  { pattern: /Type3 font resource/i, type: 'TYPE3' },
+
+  // Glyph patterns
+  { pattern: /charToGlyph/i, type: 'GLYPH' },
+  { pattern: /glyfs/i, type: 'GLYPH' },
+  { pattern: /glyph/i, type: 'GLYPH' },
+  { pattern: /buildFontPaths/i, type: 'GLYPH' },
+
+  // XFA patterns
+  { pattern: /XFA.*font/i, type: 'XFA' },
+
+  // General font patterns (checked last as catch-all for font issues)
+  { pattern: /font/i, type: 'GENERAL' },
+];
+
+/**
+ * Determines the font error type from a warning message.
+ *
+ * @param message - The warning message to analyze
+ * @returns The font error type, or null if not a font warning
+ * @internal
+ */
+function getFontErrorType(message: string): FontErrorType | null {
+  // Only process messages that contain font-related keywords
+  if (!/font|glyph|TT:|CFF|Type[13]|XFA|charstring/i.test(message)) {
+    return null;
+  }
+
+  for (const { pattern, type } of FONT_WARNING_PATTERNS) {
+    if (pattern.test(message)) {
+      return type;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Class to capture font warnings from pdfjs-dist during rendering.
+ *
+ * pdfjs-dist outputs warnings to console.log with a "Warning: " prefix.
+ * This class temporarily intercepts console.log to capture font-related warnings.
+ *
+ * @internal
+ */
+class FontWarningCapture {
+  private warnings: FontWarning[] = [];
+  private originalConsoleLog: typeof console.log;
+  private isCapturing = false;
+
+  /**
+   * Start capturing font warnings.
+   */
+  public start(): void {
+    if (this.isCapturing) {
+      return;
+    }
+
+    this.warnings = [];
+    this.originalConsoleLog = console.log;
+    this.isCapturing = true;
+
+    console.log = (...args: unknown[]) => {
+      // Check if this is a pdfjs-dist warning
+      if (args.length > 0 && typeof args[0] === 'string') {
+        const message = args[0];
+
+        // pdfjs-dist format: "Warning: <message>"
+        if (message.startsWith('Warning: ')) {
+          const warningContent = message.slice('Warning: '.length);
+          const fontErrorType = getFontErrorType(warningContent);
+
+          if (fontErrorType) {
+            this.warnings.push({
+              type: fontErrorType,
+              message: warningContent,
+            });
+          }
+        }
+      }
+
+      // Always call original console.log
+      this.originalConsoleLog.apply(console, args);
+    };
+  }
+
+  /**
+   * Stop capturing and restore original console.log.
+   */
+  public stop(): void {
+    if (!this.isCapturing) {
+      return;
+    }
+
+    console.log = this.originalConsoleLog;
+    this.isCapturing = false;
+  }
+
+  /**
+   * Get all captured warnings.
+   */
+  public getWarnings(): FontWarning[] {
+    return [...this.warnings];
+  }
+
+  /**
+   * Check if any warnings were captured.
+   */
+  public hasWarnings(): boolean {
+    return this.warnings.length > 0;
+  }
+
+  /**
+   * Clear all captured warnings.
+   */
+  public clear(): void {
+    this.warnings = [];
+  }
+}
+
+/**
+ * Creates an appropriate FontError subclass based on the captured warnings.
+ *
+ * The most specific error type is chosen based on the warnings:
+ * - If there are TrueType warnings, throws TrueTypeFontError
+ * - If there are CFF warnings, throws CffFontError
+ * - etc.
+ * - If there are multiple types, the primary type is determined by priority.
+ *
+ * @param warnings - The captured font warnings
+ * @returns The appropriate FontError subclass instance
+ * @internal
+ */
+function createFontError(warnings: FontWarning[]): FontError {
+  // Count warnings by type
+  const typeCounts = new Map<FontErrorType, number>();
+  for (const warning of warnings) {
+    typeCounts.set(warning.type, (typeCounts.get(warning.type) || 0) + 1);
+  }
+
+  // Priority order for determining primary error type
+  const priority: FontErrorType[] = [
+    'TRUETYPE',
+    'CFF',
+    'TYPE1',
+    'TYPE3',
+    'GLYPH',
+    'XFA',
+    'GENERAL',
+  ];
+
+  // Find the primary error type (first one with warnings in priority order)
+  let primaryType: FontErrorType = 'GENERAL';
+  for (const type of priority) {
+    if (typeCounts.has(type)) {
+      primaryType = type;
+      break;
+    }
+  }
+
+  // Create summary message
+  const typeNames: Record<FontErrorType, string> = {
+    TRUETYPE: 'TrueType',
+    CFF: 'CFF',
+    TYPE1: 'Type1',
+    TYPE3: 'Type3',
+    GLYPH: 'Glyph',
+    XFA: 'XFA',
+    GENERAL: 'Font',
+  };
+
+  const typeSummary = Array.from(typeCounts.entries())
+    .map(([type, count]) => `${typeNames[type]}(${count})`)
+    .join(', ');
+
+  const message = `Font errors detected during PDF rendering: ${typeSummary}. Total: ${warnings.length} warning(s).`;
+
+  // Create appropriate error subclass
+  switch (primaryType) {
+    case 'TRUETYPE':
+      return new TrueTypeFontError(message, warnings);
+    case 'CFF':
+      return new CffFontError(message, warnings);
+    case 'TYPE1':
+      return new Type1FontError(message, warnings);
+    case 'TYPE3':
+      return new Type3FontError(message, warnings);
+    case 'GLYPH':
+      return new GlyphError(message, warnings);
+    case 'XFA':
+      return new XfaFontError(message, warnings);
+    default:
+      return new GeneralFontError(message, warnings);
+  }
+}
 
 /**
  * Internal implementation of the {@link PdfDocument} interface.
@@ -47,13 +277,28 @@ export class PdfDocumentImpl implements PdfDocument {
   private closed = false;
 
   /**
+   * Whether to throw errors on font warnings.
+   * @internal
+   */
+  private throwOnFontError: boolean;
+
+  /**
+   * Font warning capture instance for collecting warnings during rendering.
+   * @internal
+   */
+  private warningCapture: FontWarningCapture;
+
+  /**
    * Creates a new PdfDocumentImpl instance.
    *
    * @param document - The pdfjs-dist document proxy
+   * @param throwOnFontError - Whether to throw errors on font warnings
    * @internal
    */
-  private constructor(document: PDFDocumentProxy) {
+  private constructor(document: PDFDocumentProxy, throwOnFontError: boolean) {
     this.document = document;
+    this.throwOnFontError = throwOnFontError;
+    this.warningCapture = new FontWarningCapture();
   }
 
   /**
@@ -86,7 +331,7 @@ export class PdfDocumentImpl implements PdfDocument {
 
     try {
       const document = await loadingTask.promise;
-      return new PdfDocumentImpl(document);
+      return new PdfDocumentImpl(document, options.throwOnFontError ?? false);
     } catch (error) {
       throw wrapPdfjsError(error);
     }
@@ -245,11 +490,13 @@ export class PdfDocumentImpl implements PdfDocument {
    *
    * This method handles the actual rendering using pdfjs-dist and canvas.
    * It creates a canvas, renders the page, and converts it to an image buffer.
+   * If `throwOnFontError` is enabled, font warnings are captured and thrown as errors.
    *
    * @param pageNumber - Page number to render (1-indexed, already validated)
    * @param options - Rendering options
    * @returns Promise resolving to the rendered page
    * @throws {@link PdfError} with code `RENDER_FAILED` if rendering fails
+   * @throws {@link FontError} or its subclasses if font issues are detected and `throwOnFontError` is enabled
    * @internal
    */
   private async renderPageInternal(
@@ -261,6 +508,11 @@ export class PdfDocumentImpl implements PdfDocument {
     const quality = options.quality ?? DEFAULT_RENDER_OPTIONS.quality;
 
     let page: PDFPageProxy | null = null;
+
+    // Start capturing font warnings if throwOnFontError is enabled
+    if (this.throwOnFontError) {
+      this.warningCapture.start();
+    }
 
     try {
       page = await this.document.getPage(pageNumber);
@@ -277,6 +529,12 @@ export class PdfDocumentImpl implements PdfDocument {
         viewport,
       }).promise;
 
+      // Check for font warnings if throwOnFontError is enabled
+      if (this.throwOnFontError && this.warningCapture.hasWarnings()) {
+        const warnings = this.warningCapture.getWarnings();
+        throw createFontError(warnings);
+      }
+
       // Convert to buffer
       const buffer =
         format === 'jpeg'
@@ -291,12 +549,23 @@ export class PdfDocumentImpl implements PdfDocument {
         height: Math.round(viewport.height),
       };
     } catch (error) {
+      // Re-throw FontError instances directly
+      if (error instanceof FontError) {
+        throw error;
+      }
+
       throw new PdfError(
         `Failed to render page ${pageNumber}: ${error instanceof Error ? error.message : String(error)}`,
         'RENDER_FAILED',
         error,
       );
     } finally {
+      // Stop capturing and clean up
+      if (this.throwOnFontError) {
+        this.warningCapture.stop();
+        this.warningCapture.clear();
+      }
+
       // Clean up page resources
       if (page) {
         page.cleanup();

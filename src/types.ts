@@ -53,6 +53,11 @@ export type PdfInput = string | Buffer | Uint8Array | ArrayBuffer;
  *   cMapPath: '/custom/cmaps/',
  *   standardFontPath: '/custom/fonts/'
  * })
+ *
+ * // Throw errors on font issues
+ * const pdf = await openPdf('/path/to/document.pdf', {
+ *   throwOnFontError: true
+ * })
  * ```
  */
 export interface PdfOpenOptions {
@@ -91,6 +96,46 @@ export interface PdfOpenOptions {
    * ```
    */
   password?: string;
+
+  /**
+   * Whether to throw an error when font issues are encountered during rendering.
+   *
+   * When set to `true`, the library will capture font-related warnings from
+   * pdfjs-dist and throw an appropriate error ({@link FontError} or its subclasses)
+   * instead of silently continuing with potentially incomplete rendering.
+   *
+   * Font error types that can be thrown:
+   * - {@link TrueTypeFontError} - TrueType font parsing errors
+   * - {@link CffFontError} - CFF (Compact Font Format) errors
+   * - {@link Type1FontError} - Type1 font errors
+   * - {@link Type3FontError} - Type3 font errors
+   * - {@link GlyphError} - Glyph processing errors
+   * - {@link XfaFontError} - XFA form font errors
+   * - {@link GeneralFontError} - General font loading/compilation errors
+   *
+   * @defaultValue false
+   *
+   * @example
+   * ```typescript
+   * import { openPdf, FontError, TrueTypeFontError } from 'pdf-simple'
+   *
+   * try {
+   *   const pdf = await openPdf('/path/to/document.pdf', {
+   *     throwOnFontError: true
+   *   })
+   *   for await (const page of pdf.renderPages()) {
+   *     await fs.writeFile(`page-${page.pageNumber}.jpg`, page.buffer)
+   *   }
+   * } catch (error) {
+   *   if (error instanceof TrueTypeFontError) {
+   *     console.log('TrueType font issues:', error.warnings)
+   *   } else if (error instanceof FontError) {
+   *     console.log('Font issues:', error.warnings)
+   *   }
+   * }
+   * ```
+   */
+  throwOnFontError?: boolean;
 }
 
 /**
@@ -512,3 +557,309 @@ export type PdfErrorCode =
   | 'DOCUMENT_CLOSED'
   /** An unexpected error occurred */
   | 'UNKNOWN';
+
+/**
+ * Font error types for categorizing font-related issues in PDF rendering.
+ *
+ * pdfjs-dist may encounter various font problems while rendering PDFs.
+ * These error types categorize different font-related issues:
+ *
+ * | Type | Description |
+ * |------|-------------|
+ * | `TRUETYPE` | TrueType font parsing/processing errors |
+ * | `CFF` | Compact Font Format (CFF) errors |
+ * | `TYPE1` | Type1 font errors |
+ * | `TYPE3` | Type3 font errors |
+ * | `GLYPH` | Glyph rendering/processing errors |
+ * | `XFA` | XFA form font errors |
+ * | `GENERAL` | General font loading/compilation errors |
+ */
+export type FontErrorType =
+  /** TrueType font parsing/processing errors */
+  | 'TRUETYPE'
+  /** Compact Font Format (CFF) errors */
+  | 'CFF'
+  /** Type1 font errors */
+  | 'TYPE1'
+  /** Type3 font errors */
+  | 'TYPE3'
+  /** Glyph rendering/processing errors */
+  | 'GLYPH'
+  /** XFA form font errors */
+  | 'XFA'
+  /** General font loading/compilation errors */
+  | 'GENERAL';
+
+/**
+ * Represents a single font-related warning captured during PDF rendering.
+ */
+export interface FontWarning {
+  /**
+   * The type of font error.
+   */
+  type: FontErrorType;
+
+  /**
+   * The original warning message from pdfjs-dist.
+   */
+  message: string;
+}
+
+/**
+ * Base class for font-related errors during PDF rendering.
+ *
+ * This error is thrown when font issues are encountered and strict mode
+ * is enabled. It contains all captured font warnings categorized by type.
+ *
+ * @example
+ * ```typescript
+ * import { openPdf, FontError } from 'pdf-simple'
+ *
+ * try {
+ *   const pdf = await openPdf('/path/to/document.pdf', {
+ *     throwOnFontError: true
+ *   })
+ *   for await (const page of pdf.renderPages()) {
+ *     // ...
+ *   }
+ * } catch (error) {
+ *   if (error instanceof FontError) {
+ *     console.log(`Font errors: ${error.warnings.length}`)
+ *     for (const warning of error.warnings) {
+ *       console.log(`[${warning.type}] ${warning.message}`)
+ *     }
+ *   }
+ * }
+ * ```
+ */
+export class FontError extends Error {
+  /**
+   * Creates a new FontError instance.
+   *
+   * @param message - Human-readable error message summarizing the font issues
+   * @param warnings - Array of individual font warnings captured during rendering
+   */
+  public constructor(
+    message: string,
+    public readonly warnings: FontWarning[],
+  ) {
+    super(message);
+    this.name = 'FontError';
+  }
+
+  /**
+   * Get warnings filtered by a specific font error type.
+   *
+   * @param type - The font error type to filter by
+   * @returns Array of warnings matching the specified type
+   */
+  public getWarningsByType(type: FontErrorType): FontWarning[] {
+    return this.warnings.filter((w) => w.type === type);
+  }
+
+  /**
+   * Check if the error contains warnings of a specific type.
+   *
+   * @param type - The font error type to check for
+   * @returns True if there are warnings of the specified type
+   */
+  public hasWarningType(type: FontErrorType): boolean {
+    return this.warnings.some((w) => w.type === type);
+  }
+}
+
+/**
+ * Error thrown when TrueType font issues are encountered.
+ *
+ * TrueType errors typically occur when:
+ * - Invalid function calls in font programs (CALL, FDEF, IDEF)
+ * - Nested function definitions
+ * - Stack/function table issues
+ *
+ * @example
+ * ```typescript
+ * import { TrueTypeFontError } from 'pdf-simple'
+ *
+ * try {
+ *   // ... render PDF
+ * } catch (error) {
+ *   if (error instanceof TrueTypeFontError) {
+ *     console.log('TrueType font issues detected')
+ *   }
+ * }
+ * ```
+ */
+export class TrueTypeFontError extends FontError {
+  public constructor(message: string, warnings: FontWarning[]) {
+    super(message, warnings);
+    this.name = 'TrueTypeFontError';
+  }
+}
+
+/**
+ * Error thrown when CFF (Compact Font Format) issues are encountered.
+ *
+ * CFF errors typically occur when:
+ * - Invalid CFFDict values
+ * - Stem hint ordering issues
+ * - Invalid fd index for glyphs
+ * - Missing strings in CFF tables
+ *
+ * @example
+ * ```typescript
+ * import { CffFontError } from 'pdf-simple'
+ *
+ * try {
+ *   // ... render PDF
+ * } catch (error) {
+ *   if (error instanceof CffFontError) {
+ *     console.log('CFF font issues detected')
+ *   }
+ * }
+ * ```
+ */
+export class CffFontError extends FontError {
+  public constructor(message: string, warnings: FontWarning[]) {
+    super(message, warnings);
+    this.name = 'CffFontError';
+  }
+}
+
+/**
+ * Error thrown when Type1 font issues are encountered.
+ *
+ * Type1 errors typically occur when:
+ * - Invalid "Length1" property in Type1 fonts
+ * - Unable to recover font data
+ *
+ * @example
+ * ```typescript
+ * import { Type1FontError } from 'pdf-simple'
+ *
+ * try {
+ *   // ... render PDF
+ * } catch (error) {
+ *   if (error instanceof Type1FontError) {
+ *     console.log('Type1 font issues detected')
+ *   }
+ * }
+ * ```
+ */
+export class Type1FontError extends FontError {
+  public constructor(message: string, warnings: FontWarning[]) {
+    super(message, warnings);
+    this.name = 'Type1FontError';
+  }
+}
+
+/**
+ * Error thrown when Type3 font issues are encountered.
+ *
+ * Type3 errors typically occur when:
+ * - Type3 characters are not available
+ * - Type3 font resources are missing
+ *
+ * @example
+ * ```typescript
+ * import { Type3FontError } from 'pdf-simple'
+ *
+ * try {
+ *   // ... render PDF
+ * } catch (error) {
+ *   if (error instanceof Type3FontError) {
+ *     console.log('Type3 font issues detected')
+ *   }
+ * }
+ * ```
+ */
+export class Type3FontError extends FontError {
+  public constructor(message: string, warnings: FontWarning[]) {
+    super(message, warnings);
+    this.name = 'Type3FontError';
+  }
+}
+
+/**
+ * Error thrown when glyph-related issues are encountered.
+ *
+ * Glyph errors typically occur when:
+ * - Invalid fontCharCode in charToGlyph
+ * - Not enough space for glyph operations
+ * - Glyph path building failures
+ *
+ * @example
+ * ```typescript
+ * import { GlyphError } from 'pdf-simple'
+ *
+ * try {
+ *   // ... render PDF
+ * } catch (error) {
+ *   if (error instanceof GlyphError) {
+ *     console.log('Glyph issues detected')
+ *   }
+ * }
+ * ```
+ */
+export class GlyphError extends FontError {
+  public constructor(message: string, warnings: FontWarning[]) {
+    super(message, warnings);
+    this.name = 'GlyphError';
+  }
+}
+
+/**
+ * Error thrown when XFA form font issues are encountered.
+ *
+ * XFA errors typically occur when:
+ * - XFA fonts cannot be found
+ * - Too many font choices to determine the correct font
+ *
+ * @example
+ * ```typescript
+ * import { XfaFontError } from 'pdf-simple'
+ *
+ * try {
+ *   // ... render PDF
+ * } catch (error) {
+ *   if (error instanceof XfaFontError) {
+ *     console.log('XFA font issues detected')
+ *   }
+ * }
+ * ```
+ */
+export class XfaFontError extends FontError {
+  public constructor(message: string, warnings: FontWarning[]) {
+    super(message, warnings);
+    this.name = 'XfaFontError';
+  }
+}
+
+/**
+ * Error thrown when general font issues are encountered.
+ *
+ * General font errors typically occur when:
+ * - Font files are empty or unavailable
+ * - Font compilation fails
+ * - Font loading or translation fails
+ * - System fonts cannot be loaded
+ * - Invalid font matrices
+ *
+ * @example
+ * ```typescript
+ * import { GeneralFontError } from 'pdf-simple'
+ *
+ * try {
+ *   // ... render PDF
+ * } catch (error) {
+ *   if (error instanceof GeneralFontError) {
+ *     console.log('General font issues detected')
+ *   }
+ * }
+ * ```
+ */
+export class GeneralFontError extends FontError {
+  public constructor(message: string, warnings: FontWarning[]) {
+    super(message, warnings);
+    this.name = 'GeneralFontError';
+  }
+}

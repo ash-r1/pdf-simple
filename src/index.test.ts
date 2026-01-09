@@ -266,3 +266,89 @@ describeWithCanvas('document lifecycle', () => {
     await pdf.close(); // Should not throw
   });
 });
+
+// FontError tests don't require canvas, so we import directly from types.js
+describe('FontError classes', () => {
+  it('should export FontError and its subclasses', async () => {
+    const {
+      FontError,
+      TrueTypeFontError,
+      CffFontError,
+      Type1FontError,
+      Type3FontError,
+      GlyphError,
+      XfaFontError,
+      GeneralFontError,
+    } = await import('./types.js');
+
+    expect(FontError).toBeDefined();
+    expect(TrueTypeFontError).toBeDefined();
+    expect(CffFontError).toBeDefined();
+    expect(Type1FontError).toBeDefined();
+    expect(Type3FontError).toBeDefined();
+    expect(GlyphError).toBeDefined();
+    expect(XfaFontError).toBeDefined();
+    expect(GeneralFontError).toBeDefined();
+  });
+
+  it('FontError should store warnings and support filtering', async () => {
+    const { FontError } = await import('./types.js');
+
+    const warnings = [
+      { type: 'TRUETYPE' as const, message: 'TT: CALL invalid functions stack delta.' },
+      { type: 'CFF' as const, message: 'CFF stem hints are in wrong order' },
+      { type: 'TRUETYPE' as const, message: 'TT: nested FDEFs not allowed' },
+    ];
+
+    const error = new FontError('Test error', warnings);
+
+    expect(error.warnings).toHaveLength(3);
+    expect(error.getWarningsByType('TRUETYPE')).toHaveLength(2);
+    expect(error.getWarningsByType('CFF')).toHaveLength(1);
+    expect(error.getWarningsByType('GENERAL')).toHaveLength(0);
+    expect(error.hasWarningType('TRUETYPE')).toBe(true);
+    expect(error.hasWarningType('CFF')).toBe(true);
+    expect(error.hasWarningType('XFA')).toBe(false);
+  });
+
+  it('TrueTypeFontError should be an instance of FontError', async () => {
+    const { FontError, TrueTypeFontError } = await import('./types.js');
+
+    const error = new TrueTypeFontError('TrueType error', [
+      { type: 'TRUETYPE', message: 'TT: test error' },
+    ]);
+
+    expect(error).toBeInstanceOf(FontError);
+    expect(error).toBeInstanceOf(TrueTypeFontError);
+    expect(error.name).toBe('TrueTypeFontError');
+  });
+
+  it('CffFontError should be an instance of FontError', async () => {
+    const { FontError, CffFontError } = await import('./types.js');
+
+    const error = new CffFontError('CFF error', [{ type: 'CFF', message: 'CFF test error' }]);
+
+    expect(error).toBeInstanceOf(FontError);
+    expect(error).toBeInstanceOf(CffFontError);
+    expect(error.name).toBe('CffFontError');
+  });
+});
+
+describeWithCanvas('throwOnFontError option', () => {
+  it('should render normally without throwOnFontError option', async () => {
+    const { openPdf } = await import('./index.js');
+    const pdf = await openPdf(singlePagePdf);
+    const page = await pdf.renderPage(1);
+    expect(page.buffer).toBeInstanceOf(Buffer);
+    await pdf.close();
+  });
+
+  it('should render normally with throwOnFontError when no font errors', async () => {
+    const { openPdf } = await import('./index.js');
+    // Standard PDFs created with pdf-lib shouldn't have font errors
+    const pdf = await openPdf(singlePagePdf, { throwOnFontError: true });
+    const page = await pdf.renderPage(1);
+    expect(page.buffer).toBeInstanceOf(Buffer);
+    await pdf.close();
+  });
+});
