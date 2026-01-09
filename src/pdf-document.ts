@@ -342,7 +342,9 @@ async function resolveInput(input: PdfInput): Promise<Uint8Array> {
   }
 
   if (input instanceof Uint8Array) {
-    return input;
+    // Create a new Uint8Array to ensure it's a plain array without extra properties
+    // that might cause structuredClone issues in pdfjs-dist's LoopbackPort
+    return new Uint8Array(input);
   }
 
   if (input instanceof ArrayBuffer) {
