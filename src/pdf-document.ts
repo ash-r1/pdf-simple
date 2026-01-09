@@ -78,6 +78,8 @@ export class PdfDocumentImpl implements PdfDocument {
     const loadingTask = pdfjsLib.getDocument({
       data,
       isEvalSupported: false,
+      useWorkerFetch: false,
+      disableAutoFetch: true,
       cMapUrl: options.cMapPath ?? getCMapUrl(),
       cMapPacked: true,
       standardFontDataUrl: options.standardFontPath ?? getStandardFontDataUrl(),
