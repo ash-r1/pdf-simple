@@ -336,15 +336,19 @@ async function resolveInput(input: PdfInput): Promise<Uint8Array> {
   }
 
   if (input instanceof Buffer) {
+    // Buffer.prototype.slice returns a view, so we need to copy
     return new Uint8Array(input);
   }
 
   if (input instanceof Uint8Array) {
-    return input;
+    // Create a defensive copy to protect the caller's data from ArrayBuffer
+    // detachment that may occur during pdfjs-dist processing
+    return new Uint8Array(input);
   }
 
   if (input instanceof ArrayBuffer) {
-    return new Uint8Array(input);
+    // Create a defensive copy to protect the caller's data
+    return new Uint8Array(input.slice(0));
   }
 
   throw new PdfError('Invalid input type', 'INVALID_INPUT');
