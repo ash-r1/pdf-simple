@@ -1,5 +1,11 @@
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PDFDocument, rgb } from 'pdf-lib';
 import { beforeAll, describe, expect, it } from 'vitest';
+
+// Get the fixtures directory path
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const fixturesDir = path.join(__dirname, '..', 'fixtures');
 
 // Check if PDFium and sharp are available before running tests
 let pdfiumAvailable = false;
@@ -265,5 +271,190 @@ describeWithPdfium('document lifecycle', () => {
     const pdf = await openPdf(singlePagePdf);
     await pdf.close();
     await pdf.close(); // Should not throw
+  });
+});
+
+// CJK Language PDF Tests
+describeWithPdfium('CJK Language Support', () => {
+  describe('Japanese PDF', () => {
+    const japanesePdfPath = path.join(fixturesDir, 'japanese.pdf');
+
+    it('should open a Japanese PDF from file path', async () => {
+      const { openPdf } = await import('./index.js');
+      const pdf = await openPdf(japanesePdfPath);
+      expect(pdf.pageCount).toBe(1);
+      await pdf.close();
+    });
+
+    it('should render Japanese PDF page to JPEG', async () => {
+      const { openPdf } = await import('./index.js');
+      const pdf = await openPdf(japanesePdfPath);
+      const page = await pdf.renderPage(1);
+
+      expect(page.pageNumber).toBe(1);
+      expect(page.buffer).toBeInstanceOf(Buffer);
+      expect(page.width).toBeGreaterThan(0);
+      expect(page.height).toBeGreaterThan(0);
+
+      // Check JPEG magic bytes
+      expect(page.buffer[0]).toBe(0xff);
+      expect(page.buffer[1]).toBe(0xd8);
+
+      await pdf.close();
+    });
+
+    it('should render Japanese PDF page to PNG', async () => {
+      const { openPdf } = await import('./index.js');
+      const pdf = await openPdf(japanesePdfPath);
+      const page = await pdf.renderPage(1, { format: 'png' });
+
+      expect(page.buffer).toBeInstanceOf(Buffer);
+
+      // Check PNG magic bytes
+      expect(page.buffer[0]).toBe(0x89);
+      expect(page.buffer[1]).toBe(0x50);
+      expect(page.buffer[2]).toBe(0x4e);
+      expect(page.buffer[3]).toBe(0x47);
+
+      await pdf.close();
+    });
+  });
+
+  describe('Chinese PDF', () => {
+    const chinesePdfPath = path.join(fixturesDir, 'chinese.pdf');
+
+    it('should open a Chinese PDF from file path', async () => {
+      const { openPdf } = await import('./index.js');
+      const pdf = await openPdf(chinesePdfPath);
+      expect(pdf.pageCount).toBe(1);
+      await pdf.close();
+    });
+
+    it('should render Chinese PDF page to JPEG', async () => {
+      const { openPdf } = await import('./index.js');
+      const pdf = await openPdf(chinesePdfPath);
+      const page = await pdf.renderPage(1);
+
+      expect(page.pageNumber).toBe(1);
+      expect(page.buffer).toBeInstanceOf(Buffer);
+      expect(page.width).toBeGreaterThan(0);
+      expect(page.height).toBeGreaterThan(0);
+
+      // Check JPEG magic bytes
+      expect(page.buffer[0]).toBe(0xff);
+      expect(page.buffer[1]).toBe(0xd8);
+
+      await pdf.close();
+    });
+
+    it('should render Chinese PDF page to PNG', async () => {
+      const { openPdf } = await import('./index.js');
+      const pdf = await openPdf(chinesePdfPath);
+      const page = await pdf.renderPage(1, { format: 'png' });
+
+      expect(page.buffer).toBeInstanceOf(Buffer);
+
+      // Check PNG magic bytes
+      expect(page.buffer[0]).toBe(0x89);
+      expect(page.buffer[1]).toBe(0x50);
+      expect(page.buffer[2]).toBe(0x4e);
+      expect(page.buffer[3]).toBe(0x47);
+
+      await pdf.close();
+    });
+  });
+
+  describe('Korean PDF', () => {
+    const koreanPdfPath = path.join(fixturesDir, 'korean.pdf');
+
+    it('should open a Korean PDF from file path', async () => {
+      const { openPdf } = await import('./index.js');
+      const pdf = await openPdf(koreanPdfPath);
+      expect(pdf.pageCount).toBe(1);
+      await pdf.close();
+    });
+
+    it('should render Korean PDF page to JPEG', async () => {
+      const { openPdf } = await import('./index.js');
+      const pdf = await openPdf(koreanPdfPath);
+      const page = await pdf.renderPage(1);
+
+      expect(page.pageNumber).toBe(1);
+      expect(page.buffer).toBeInstanceOf(Buffer);
+      expect(page.width).toBeGreaterThan(0);
+      expect(page.height).toBeGreaterThan(0);
+
+      // Check JPEG magic bytes
+      expect(page.buffer[0]).toBe(0xff);
+      expect(page.buffer[1]).toBe(0xd8);
+
+      await pdf.close();
+    });
+
+    it('should render Korean PDF page to PNG', async () => {
+      const { openPdf } = await import('./index.js');
+      const pdf = await openPdf(koreanPdfPath);
+      const page = await pdf.renderPage(1, { format: 'png' });
+
+      expect(page.buffer).toBeInstanceOf(Buffer);
+
+      // Check PNG magic bytes
+      expect(page.buffer[0]).toBe(0x89);
+      expect(page.buffer[1]).toBe(0x50);
+      expect(page.buffer[2]).toBe(0x4e);
+      expect(page.buffer[3]).toBe(0x47);
+
+      await pdf.close();
+    });
+  });
+
+  describe('CJK PDF with renderPdfPages', () => {
+    it('should render all CJK PDFs using renderPdfPages helper', async () => {
+      const { renderPdfPages } = await import('./index.js');
+
+      // Test Japanese PDF
+      const japanesePdfPath = path.join(fixturesDir, 'japanese.pdf');
+      let pageCount = 0;
+      for await (const page of renderPdfPages(japanesePdfPath)) {
+        expect(page.pageNumber).toBe(1);
+        expect(page.buffer).toBeInstanceOf(Buffer);
+        pageCount++;
+      }
+      expect(pageCount).toBe(1);
+
+      // Test Chinese PDF
+      const chinesePdfPath = path.join(fixturesDir, 'chinese.pdf');
+      pageCount = 0;
+      for await (const page of renderPdfPages(chinesePdfPath)) {
+        expect(page.pageNumber).toBe(1);
+        expect(page.buffer).toBeInstanceOf(Buffer);
+        pageCount++;
+      }
+      expect(pageCount).toBe(1);
+
+      // Test Korean PDF
+      const koreanPdfPath = path.join(fixturesDir, 'korean.pdf');
+      pageCount = 0;
+      for await (const page of renderPdfPages(koreanPdfPath)) {
+        expect(page.pageNumber).toBe(1);
+        expect(page.buffer).toBeInstanceOf(Buffer);
+        pageCount++;
+      }
+      expect(pageCount).toBe(1);
+    });
+  });
+
+  describe('CJK PDF with getPageCount', () => {
+    it('should return correct page count for CJK PDFs', async () => {
+      const { getPageCount } = await import('./index.js');
+
+      const japanesePdfPath = path.join(fixturesDir, 'japanese.pdf');
+      const chinesePdfPath = path.join(fixturesDir, 'chinese.pdf');
+      const koreanPdfPath = path.join(fixturesDir, 'korean.pdf');
+
+      expect(await getPageCount(japanesePdfPath)).toBe(1);
+      expect(await getPageCount(chinesePdfPath)).toBe(1);
+      expect(await getPageCount(koreanPdfPath)).toBe(1);
+    });
   });
 });

@@ -57,6 +57,7 @@
     "@biomejs/biome": "^2.3.10",
     "@changesets/changelog-github": "^0.5.2",
     "@changesets/cli": "^2.29.8",
+    "@pdf-lib/fontkit": "^1.1.1",
     "@types/node": "^22.10.5",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
