@@ -1,5 +1,11 @@
 /**
- * PDF Document implementation using pdfjs-dist
+ * PDF Document implementation using pdfjs-dist.
+ *
+ * This module contains the internal implementation of the PDF document
+ * handling. It uses Mozilla's pdf.js library for PDF parsing and rendering.
+ *
+ * @module pdf-document
+ * @internal
  */
 
 import fs from 'node:fs/promises';
@@ -20,18 +26,48 @@ import type {
 import { PdfError } from './types.js';
 
 /**
- * Internal PDF document implementation
+ * Internal implementation of the {@link PdfDocument} interface.
+ *
+ * This class wraps pdfjs-dist's PDFDocumentProxy and provides a
+ * simpler, memory-efficient API for rendering PDF pages to images.
+ *
+ * @internal This class is not part of the public API. Use {@link openPdf} instead.
  */
 export class PdfDocumentImpl implements PdfDocument {
+  /**
+   * The underlying pdfjs-dist document proxy.
+   * @internal
+   */
   private document: PDFDocumentProxy;
+
+  /**
+   * Whether the document has been closed.
+   * @internal
+   */
   private closed = false;
 
+  /**
+   * Creates a new PdfDocumentImpl instance.
+   *
+   * @param document - The pdfjs-dist document proxy
+   * @internal
+   */
   private constructor(document: PDFDocumentProxy) {
     this.document = document;
   }
 
   /**
-   * Open a PDF document from various input sources
+   * Opens a PDF document from various input sources.
+   *
+   * This is the factory method for creating PdfDocumentImpl instances.
+   * It handles input resolution and error wrapping.
+   *
+   * @param input - File path, Buffer, Uint8Array, or ArrayBuffer
+   * @param options - Options for opening the PDF
+   * @returns Promise resolving to a new PdfDocumentImpl instance
+   * @throws {@link PdfError} if the PDF cannot be opened
+   *
+   * @internal Use {@link openPdf} from the public API instead.
    */
   public static async open(
     input: PdfInput,
@@ -56,11 +92,29 @@ export class PdfDocumentImpl implements PdfDocument {
     }
   }
 
+  /**
+   * Gets the total number of pages in the document.
+   *
+   * @returns The number of pages
+   * @throws {@link PdfError} with code `DOCUMENT_CLOSED` if the document has been closed
+   */
   public get pageCount(): number {
     this.ensureOpen();
     return this.document.numPages;
   }
 
+  /**
+   * Renders pages as images using an async generator.
+   *
+   * This method is memory-efficient as it processes one page at a time,
+   * yielding each rendered page before moving to the next.
+   *
+   * @param options - Rendering options (scale, format, quality, pages)
+   * @returns Async generator yielding {@link RenderedPage} for each page
+   * @throws {@link PdfError} with code `DOCUMENT_CLOSED` if the document has been closed
+   * @throws {@link PdfError} with code `INVALID_PAGE_NUMBER` if any specified page is out of range
+   * @throws {@link PdfError} with code `RENDER_FAILED` if rendering fails
+   */
   public async *renderPages(
     options: RenderOptions = {},
   ): AsyncGenerator<RenderedPage, void, unknown> {
@@ -73,6 +127,16 @@ export class PdfDocumentImpl implements PdfDocument {
     }
   }
 
+  /**
+   * Renders a single page to an image.
+   *
+   * @param pageNumber - Page number to render (1-indexed)
+   * @param options - Rendering options (scale, format, quality)
+   * @returns Promise resolving to the rendered page
+   * @throws {@link PdfError} with code `DOCUMENT_CLOSED` if the document has been closed
+   * @throws {@link PdfError} with code `INVALID_PAGE_NUMBER` if page number is out of range
+   * @throws {@link PdfError} with code `RENDER_FAILED` if rendering fails
+   */
   public async renderPage(
     pageNumber: number,
     options: Omit<RenderOptions, 'pages'> = {},
@@ -89,6 +153,12 @@ export class PdfDocumentImpl implements PdfDocument {
     return await this.renderPageInternal(pageNumber, options);
   }
 
+  /**
+   * Closes the document and releases all resources.
+   *
+   * This method is idempotent - calling it multiple times is safe.
+   * After calling this method, the document cannot be used anymore.
+   */
   public async close(): Promise<void> {
     if (this.closed) {
       return;
@@ -98,17 +168,38 @@ export class PdfDocumentImpl implements PdfDocument {
     await this.document.destroy();
   }
 
-  // AsyncDisposable implementation
+  /**
+   * Implements the AsyncDisposable interface for use with `await using`.
+   *
+   * This method is called automatically when the document goes out of scope
+   * when using the `await using` syntax (ES2024).
+   *
+   * @internal
+   */
   public async [Symbol.asyncDispose](): Promise<void> {
     await this.close();
   }
 
+  /**
+   * Ensures the document is still open.
+   *
+   * @throws {@link PdfError} with code `DOCUMENT_CLOSED` if the document has been closed
+   * @internal
+   */
   private ensureOpen(): void {
     if (this.closed) {
       throw new PdfError('Document has been closed', 'DOCUMENT_CLOSED');
     }
   }
 
+  /**
+   * Resolves the pages option to an array of page numbers.
+   *
+   * @param pages - Page specification (array, range, or undefined for all)
+   * @returns Array of page numbers to render
+   * @throws {@link PdfError} with code `INVALID_PAGE_NUMBER` if any page is out of range
+   * @internal
+   */
   private resolvePageNumbers(pages?: number[] | PageRange): number[] {
     if (!pages) {
       // All pages
@@ -149,6 +240,18 @@ export class PdfDocumentImpl implements PdfDocument {
     return Array.from({ length: end - start + 1 }, (_, i) => start + i);
   }
 
+  /**
+   * Internal method to render a single page.
+   *
+   * This method handles the actual rendering using pdfjs-dist and canvas.
+   * It creates a canvas, renders the page, and converts it to an image buffer.
+   *
+   * @param pageNumber - Page number to render (1-indexed, already validated)
+   * @param options - Rendering options
+   * @returns Promise resolving to the rendered page
+   * @throws {@link PdfError} with code `RENDER_FAILED` if rendering fails
+   * @internal
+   */
   private async renderPageInternal(
     pageNumber: number,
     options: Omit<RenderOptions, 'pages'>,
@@ -203,7 +306,20 @@ export class PdfDocumentImpl implements PdfDocument {
 }
 
 /**
- * Resolve various input types to Uint8Array
+ * Resolves various input types to a Uint8Array suitable for pdfjs-dist.
+ *
+ * This function handles:
+ * - File paths (reads the file from disk)
+ * - Node.js Buffers (converts to Uint8Array)
+ * - Uint8Array (returns as-is)
+ * - ArrayBuffer (wraps in Uint8Array)
+ *
+ * @param input - The PDF input (file path or binary data)
+ * @returns Promise resolving to a Uint8Array of PDF data
+ * @throws {@link PdfError} with code `FILE_NOT_FOUND` if the file doesn't exist
+ * @throws {@link PdfError} with code `INVALID_INPUT` if the input type is unsupported
+ *
+ * @internal
  */
 async function resolveInput(input: PdfInput): Promise<Uint8Array> {
   if (typeof input === 'string') {
@@ -235,7 +351,21 @@ async function resolveInput(input: PdfInput): Promise<Uint8Array> {
 }
 
 /**
- * Convert pdfjs-dist errors to PdfError
+ * Converts pdfjs-dist errors to {@link PdfError} instances.
+ *
+ * This function analyzes error messages to determine the appropriate
+ * error code and creates a consistent error format.
+ *
+ * Error detection:
+ * - "Invalid PDF" → `INVALID_PDF`
+ * - "password" + "incorrect" → `INVALID_PASSWORD`
+ * - "password" → `PASSWORD_REQUIRED`
+ * - Other errors → `UNKNOWN`
+ *
+ * @param error - The error thrown by pdfjs-dist
+ * @returns A PdfError with the appropriate code
+ *
+ * @internal
  */
 function wrapPdfjsError(error: unknown): PdfError {
   if (error instanceof PdfError) {

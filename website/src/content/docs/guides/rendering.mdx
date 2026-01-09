@@ -1,0 +1,123 @@
+---
+title: Rendering Guide
+description: Advanced techniques for rendering PDF pages to images
+---
+
+This guide covers advanced rendering techniques with pdf-simple.
+
+## Understanding Scale
+
+The `scale` option controls the output resolution. PDFs are typically created at 72 DPI, so:
+
+| Scale | DPI | Use Case |
+|-------|-----|----------|
+| 0.5 | 36 | Small thumbnails |
+| 1.0 | 72 | Original PDF size |
+| 1.5 | 108 | Default, good balance |
+| 2.0 | 144 | High quality viewing |
+| 3.0 | 216 | Print quality |
+
+```typescript
+// Example: Generate thumbnails and high-res versions
+const pdf = await openPdf('/path/to/document.pdf');
+
+// Thumbnails
+for await (const page of pdf.renderPages({ scale: 0.5 })) {
+  await fs.writeFile(`thumb-${page.pageNumber}.jpg`, page.buffer);
+}
+
+// High resolution
+for await (const page of pdf.renderPages({ scale: 2.0, format: 'png' })) {
+  await fs.writeFile(`hires-${page.pageNumber}.png`, page.buffer);
+}
+
+await pdf.close();
+```
+
+## Memory Efficiency
+
+pdf-simple uses async generators for memory-efficient processing:
+
+```typescript
+// Memory efficient - processes one page at a time
+for await (const page of pdf.renderPages()) {
+  await processPage(page);
+  // Previous page resources are released before next page
+}
+```
+
+For very large PDFs, you can also process pages in batches:
+
+```typescript
+const BATCH_SIZE = 10;
+
+for (let i = 1; i <= pdf.pageCount; i += BATCH_SIZE) {
+  const endPage = Math.min(i + BATCH_SIZE - 1, pdf.pageCount);
+
+  for await (const page of pdf.renderPages({
+    pages: { start: i, end: endPage }
+  })) {
+    await processPage(page);
+  }
+
+  // Optional: pause between batches
+  await new Promise(resolve => setTimeout(resolve, 100));
+}
+```
+
+## Parallel Processing
+
+While pages are rendered sequentially for memory efficiency, you can process the output in parallel:
+
+```typescript
+const pages: RenderedPage[] = [];
+
+for await (const page of pdf.renderPages()) {
+  pages.push(page);
+}
+
+// Process all pages in parallel
+await Promise.all(
+  pages.map(page => fs.writeFile(`page-${page.pageNumber}.jpg`, page.buffer))
+);
+```
+
+## CJK Font Support
+
+pdf-simple automatically detects and configures CMap files for CJK font support. If you need custom font paths:
+
+```typescript
+const pdf = await openPdf('/path/to/document.pdf', {
+  cMapPath: '/custom/path/to/cmaps/',
+  standardFontPath: '/custom/path/to/fonts/'
+});
+```
+
+## Rendering Single Pages
+
+For rendering specific pages, use `renderPage()`:
+
+```typescript
+const pdf = await openPdf('/path/to/document.pdf');
+
+// Render just the first page
+const firstPage = await pdf.renderPage(1);
+await fs.writeFile('cover.jpg', firstPage.buffer);
+
+// Render the last page
+const lastPage = await pdf.renderPage(pdf.pageCount);
+await fs.writeFile('back.jpg', lastPage.buffer);
+
+await pdf.close();
+```
+
+## Output Dimensions
+
+The rendered page dimensions depend on the PDF page size and scale:
+
+```typescript
+for await (const page of pdf.renderPages({ scale: 2.0 })) {
+  console.log(`Page ${page.pageNumber}: ${page.width}x${page.height} pixels`);
+  // For an A4 PDF (595x842 points), this would be approximately 1190x1684 pixels
+}
+```

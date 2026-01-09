@@ -132,6 +132,10 @@ dist
 # Vite
 vite.config.ts.timestamp-*
 
+# Astro
+website/dist/
+website/.astro/
+
 # macOS
 .DS_Store
 

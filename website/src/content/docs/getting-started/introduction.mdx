@@ -1,0 +1,57 @@
+---
+title: Introduction
+description: A simple, memory-efficient library for converting PDF pages to images in Node.js
+---
+
+**pdf-simple** is a lightweight PDF to image conversion library for Node.js.
+
+## Features
+
+- **Simple API** - Just a few functions to convert PDF pages to images
+- **Memory Efficient** - Processes pages one at a time using async generators
+- **CJK Support** - Full support for Chinese, Japanese, and Korean fonts
+- **TypeScript** - Written in TypeScript with full type definitions
+- **Modern** - Supports ES2024 `await using` for automatic resource cleanup
+
+## Installation
+
+```bash
+npm install pdf-simple
+```
+
+### Canvas Dependency
+
+pdf-simple requires the `canvas` package for rendering. It's included as an optional dependency:
+
+```bash
+# If canvas isn't installed automatically
+npm install canvas
+```
+
+## Quick Example
+
+```typescript
+import { openPdf } from 'pdf-simple';
+import fs from 'node:fs/promises';
+
+// Open a PDF file
+const pdf = await openPdf('/path/to/document.pdf');
+
+// Render all pages
+for await (const page of pdf.renderPages()) {
+  await fs.writeFile(`page-${page.pageNumber}.jpg`, page.buffer);
+}
+
+// Don't forget to close
+await pdf.close();
+```
+
+## Requirements
+
+- Node.js 20 or later
+- Native canvas support (provided by the `canvas` package)
+
+## Next Steps
+
+- [Quick Start](/pdf-simple/getting-started/quick-start/) - Get started with pdf-simple
+- [API Reference](/pdf-simple/api/) - Explore the full API

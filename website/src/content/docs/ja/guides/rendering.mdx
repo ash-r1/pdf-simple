@@ -1,0 +1,123 @@
+---
+title: レンダリングガイド
+description: PDFページを画像にレンダリングする高度なテクニック
+---
+
+このガイドでは、pdf-simpleを使用した高度なレンダリングテクニックを説明します。
+
+## スケールの理解
+
+`scale`オプションは出力解像度を制御します。PDFは通常72 DPIで作成されるため：
+
+| スケール | DPI | ユースケース |
+|---------|-----|------------|
+| 0.5 | 36 | 小さいサムネイル |
+| 1.0 | 72 | PDFの元のサイズ |
+| 1.5 | 108 | デフォルト、バランスが良い |
+| 2.0 | 144 | 高品質表示 |
+| 3.0 | 216 | 印刷品質 |
+
+```typescript
+// 例: サムネイルと高解像度バージョンを生成
+const pdf = await openPdf('/path/to/document.pdf');
+
+// サムネイル
+for await (const page of pdf.renderPages({ scale: 0.5 })) {
+  await fs.writeFile(`thumb-${page.pageNumber}.jpg`, page.buffer);
+}
+
+// 高解像度
+for await (const page of pdf.renderPages({ scale: 2.0, format: 'png' })) {
+  await fs.writeFile(`hires-${page.pageNumber}.png`, page.buffer);
+}
+
+await pdf.close();
+```
+
+## メモリ効率
+
+pdf-simpleはメモリ効率の良い処理のために非同期ジェネレータを使用します：
+
+```typescript
+// メモリ効率的 - 一度に1ページずつ処理
+for await (const page of pdf.renderPages()) {
+  await processPage(page);
+  // 前のページのリソースは次のページの前に解放される
+}
+```
+
+非常に大きなPDFの場合、バッチ処理も可能です：
+
+```typescript
+const BATCH_SIZE = 10;
+
+for (let i = 1; i <= pdf.pageCount; i += BATCH_SIZE) {
+  const endPage = Math.min(i + BATCH_SIZE - 1, pdf.pageCount);
+
+  for await (const page of pdf.renderPages({
+    pages: { start: i, end: endPage }
+  })) {
+    await processPage(page);
+  }
+
+  // オプション: バッチ間で一時停止
+  await new Promise(resolve => setTimeout(resolve, 100));
+}
+```
+
+## 並列処理
+
+ページはメモリ効率のために順次レンダリングされますが、出力は並列で処理できます：
+
+```typescript
+const pages: RenderedPage[] = [];
+
+for await (const page of pdf.renderPages()) {
+  pages.push(page);
+}
+
+// すべてのページを並列で処理
+await Promise.all(
+  pages.map(page => fs.writeFile(`page-${page.pageNumber}.jpg`, page.buffer))
+);
+```
+
+## CJKフォントサポート
+
+pdf-simpleはCJKフォントサポートのためにCMapファイルを自動的に検出して設定します。カスタムフォントパスが必要な場合：
+
+```typescript
+const pdf = await openPdf('/path/to/document.pdf', {
+  cMapPath: '/custom/path/to/cmaps/',
+  standardFontPath: '/custom/path/to/fonts/'
+});
+```
+
+## 単一ページのレンダリング
+
+特定のページをレンダリングするには、`renderPage()`を使用：
+
+```typescript
+const pdf = await openPdf('/path/to/document.pdf');
+
+// 最初のページだけをレンダリング
+const firstPage = await pdf.renderPage(1);
+await fs.writeFile('cover.jpg', firstPage.buffer);
+
+// 最後のページをレンダリング
+const lastPage = await pdf.renderPage(pdf.pageCount);
+await fs.writeFile('back.jpg', lastPage.buffer);
+
+await pdf.close();
+```
+
+## 出力寸法
+
+レンダリングされたページの寸法は、PDFページサイズとスケールに依存します：
+
+```typescript
+for await (const page of pdf.renderPages({ scale: 2.0 })) {
+  console.log(`ページ ${page.pageNumber}: ${page.width}x${page.height} ピクセル`);
+  // A4 PDF（595x842ポイント）の場合、約1190x1684ピクセルになります
+}
+```

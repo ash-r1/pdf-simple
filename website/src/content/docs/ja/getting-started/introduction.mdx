@@ -1,0 +1,57 @@
+---
+title: はじめに
+description: Node.js向けのシンプルで効率的なPDF画像変換ライブラリ
+---
+
+**pdf-simple** は、Node.js向けの軽量なPDF→画像変換ライブラリです。
+
+## 特徴
+
+- **シンプルなAPI** - わずか数個の関数でPDFページを画像に変換
+- **メモリ効率** - 非同期ジェネレータを使用して1ページずつ処理
+- **CJKサポート** - 中国語、日本語、韓国語フォントを完全サポート
+- **TypeScript** - TypeScriptで書かれており、完全な型定義を提供
+- **モダン** - ES2024の`await using`による自動リソースクリーンアップをサポート
+
+## インストール
+
+```bash
+npm install pdf-simple
+```
+
+### Canvas依存関係
+
+pdf-simpleはレンダリングに`canvas`パッケージを必要とします。オプショナルな依存関係として含まれています：
+
+```bash
+# canvasが自動的にインストールされない場合
+npm install canvas
+```
+
+## クイック例
+
+```typescript
+import { openPdf } from 'pdf-simple';
+import fs from 'node:fs/promises';
+
+// PDFファイルを開く
+const pdf = await openPdf('/path/to/document.pdf');
+
+// すべてのページをレンダリング
+for await (const page of pdf.renderPages()) {
+  await fs.writeFile(`page-${page.pageNumber}.jpg`, page.buffer);
+}
+
+// 閉じることを忘れずに
+await pdf.close();
+```
+
+## 要件
+
+- Node.js 20以降
+- ネイティブcanvasサポート（`canvas`パッケージで提供）
+
+## 次のステップ
+
+- [クイックスタート](/pdf-simple/ja/getting-started/quick-start/) - pdf-simpleを始める
+- [APIリファレンス](/pdf-simple/api/) - 完全なAPIを探索

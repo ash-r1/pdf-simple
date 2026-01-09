@@ -1,0 +1,13 @@
+/* Custom styles for pdf-simple documentation */
+
+:root {
+  --sl-color-accent-low: #1e40af;
+  --sl-color-accent: #3b82f6;
+  --sl-color-accent-high: #93c5fd;
+}
+
+:root[data-theme='dark'] {
+  --sl-color-accent-low: #93c5fd;
+  --sl-color-accent: #3b82f6;
+  --sl-color-accent-high: #1e40af;
+}

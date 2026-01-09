@@ -32,7 +32,11 @@
     "prepublishOnly": "pnpm test:ci && pnpm build",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "changeset publish"
+    "release": "changeset publish",
+    "docs:dev": "cd website && pnpm dev",
+    "docs:build": "cd website && pnpm build",
+    "docs:preview": "cd website && pnpm preview",
+    "docs:install": "cd website && pnpm install"
   },
   "keywords": [
     "pdf",

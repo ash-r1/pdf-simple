@@ -1,0 +1,150 @@
+---
+title: クイックスタート
+description: pdf-simpleを数分で始める
+---
+
+このガイドでは、pdf-simpleを素早く始める方法を説明します。
+
+## インストール
+
+```bash
+npm install pdf-simple
+```
+
+## 基本的な使い方
+
+### すべてのページをレンダリング
+
+```typescript
+import { openPdf } from 'pdf-simple';
+import fs from 'node:fs/promises';
+
+const pdf = await openPdf('/path/to/document.pdf');
+
+for await (const page of pdf.renderPages()) {
+  console.log(`ページ ${page.pageNumber}/${page.totalPages} をレンダリング中`);
+  await fs.writeFile(`page-${page.pageNumber}.jpg`, page.buffer);
+}
+
+await pdf.close();
+```
+
+### `await using`を使用（ES2024）
+
+ES2024の明示的リソース管理を使用すると、`await using`で自動的にクリーンアップできます：
+
+```typescript
+import { openPdf } from 'pdf-simple';
+import fs from 'node:fs/promises';
+
+await using pdf = await openPdf('/path/to/document.pdf');
+
+for await (const page of pdf.renderPages()) {
+  await fs.writeFile(`page-${page.pageNumber}.jpg`, page.buffer);
+}
+// スコープが終了すると自動的にpdfが閉じられます
+```
+
+### ワンライナー便利関数
+
+シンプルなユースケースには`renderPdfPages`を使用：
+
+```typescript
+import { renderPdfPages } from 'pdf-simple';
+import fs from 'node:fs/promises';
+
+for await (const page of renderPdfPages('/path/to/document.pdf')) {
+  await fs.writeFile(`page-${page.pageNumber}.jpg`, page.buffer);
+}
+// PDFは自動的に開かれて閉じられます
+```
+
+## レンダリングオプション
+
+### スケール
+
+`scale`オプションで出力解像度を制御：
+
+```typescript
+// サムネイル（小さい、高速）
+for await (const page of pdf.renderPages({ scale: 0.5 })) { }
+
+// 高解像度（大きい、詳細）
+for await (const page of pdf.renderPages({ scale: 3.0 })) { }
+```
+
+### フォーマット
+
+JPEG（小さい）とPNG（ロスレス）から選択：
+
+```typescript
+// JPEG（デフォルト）
+for await (const page of pdf.renderPages({ format: 'jpeg' })) { }
+
+// PNG
+for await (const page of pdf.renderPages({ format: 'png' })) { }
+```
+
+### 品質
+
+JPEG品質を制御（0-1）：
+
+```typescript
+// 高品質
+for await (const page of pdf.renderPages({ format: 'jpeg', quality: 0.95 })) { }
+
+// 低品質、小さいファイル
+for await (const page of pdf.renderPages({ format: 'jpeg', quality: 0.5 })) { }
+```
+
+### 特定のページ
+
+特定のページのみをレンダリング：
+
+```typescript
+// 特定のページ番号
+for await (const page of pdf.renderPages({ pages: [1, 3, 5] })) { }
+
+// ページ範囲
+for await (const page of pdf.renderPages({ pages: { start: 1, end: 5 } })) { }
+```
+
+## 暗号化されたPDFを開く
+
+```typescript
+const pdf = await openPdf('/path/to/encrypted.pdf', {
+  password: 'secret'
+});
+```
+
+## エラーハンドリング
+
+```typescript
+import { openPdf, PdfError } from 'pdf-simple';
+
+try {
+  const pdf = await openPdf('/path/to/document.pdf');
+  // ...
+} catch (error) {
+  if (error instanceof PdfError) {
+    switch (error.code) {
+      case 'FILE_NOT_FOUND':
+        console.error('ファイルが見つかりません');
+        break;
+      case 'PASSWORD_REQUIRED':
+        console.error('パスワードが必要です');
+        break;
+      case 'INVALID_PDF':
+        console.error('無効なPDFファイルです');
+        break;
+      default:
+        console.error(`エラー: ${error.message}`);
+    }
+  }
+}
+```
+
+## 次のステップ
+
+- [APIリファレンス](/pdf-simple/api/) - 完全なAPIドキュメントを探索
+- [レンダリングガイド](/pdf-simple/ja/guides/rendering/) - 高度なレンダリング技術を学ぶ
