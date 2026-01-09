@@ -11,9 +11,9 @@ export default defineConfig({
     starlight({
       title: 'pdf-simple',
       description: 'PDF conversion library for Node.js',
-      social: [
-        { icon: 'github', label: 'GitHub', href: 'https://github.com/ash-r1/pdf-simple' },
-      ],
+      social: {
+        github: 'https://github.com/ash-r1/pdf-simple',
+      },
       editLink: {
         baseUrl: 'https://github.com/ash-r1/pdf-simple/edit/main/website/',
       },

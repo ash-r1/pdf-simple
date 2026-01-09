@@ -1,0 +1,34 @@
+---
+title: pdf-simple
+description: A simple, memory-efficient library for converting PDF pages to images in Node.js
+template: splash
+hero:
+  tagline: Convert PDF pages to images with ease
+  actions:
+    - text: Get Started
+      link: /pdf-simple/getting-started/introduction/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/ash-r1/pdf-simple
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Features
+
+<CardGrid stagger>
+  <Card title="Simple API" icon="pencil">
+    Just a few functions to convert PDF pages to images. No complex configuration needed.
+  </Card>
+  <Card title="Memory Efficient" icon="rocket">
+    Processes pages one at a time using async generators. Handle large PDFs without memory issues.
+  </Card>
+  <Card title="CJK Support" icon="document">
+    Full support for Chinese, Japanese, and Korean fonts out of the box.
+  </Card>
+  <Card title="TypeScript" icon="setting">
+    Written in TypeScript with full type definitions for excellent IDE support.
+  </Card>
+</CardGrid>
