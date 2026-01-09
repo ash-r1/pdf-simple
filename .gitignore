@@ -135,6 +135,7 @@ vite.config.ts.timestamp-*
 # Astro
 website/dist/
 website/.astro/
+website/src/content/docs/api/
 
 # macOS
 .DS_Store
