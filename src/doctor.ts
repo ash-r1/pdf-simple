@@ -2,8 +2,7 @@
  * Doctor module for checking pdf-simple dependencies and configuration.
  *
  * This module provides diagnostic checks to verify that all required
- * dependencies (pdfjs-dist, canvas, native libraries) are properly
- * installed and configured.
+ * dependencies (@hyzyla/pdfium, sharp) are properly installed and configured.
  *
  * @module doctor
  */
@@ -11,7 +10,6 @@
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { getCMapUrl, getStandardFontDataUrl } from './config.js';
 
 /**
  * Gets a require function that works in both ESM and CJS environments.
@@ -102,287 +100,142 @@ function checkNodeVersion(): CheckResult {
 }
 
 /**
- * Check if pdfjs-dist is installed and accessible.
+ * Check if @hyzyla/pdfium is installed and accessible.
  */
-function checkPdfjsDist(): CheckResult {
+function checkPdfium(): CheckResult {
   try {
-    // Try to get CMap URL which requires pdfjs-dist to be resolved
-    const cMapUrl = getCMapUrl();
-    const pdfjsPath = path.dirname(cMapUrl);
-
-    // Check if package.json exists
-    const packageJsonPath = path.join(pdfjsPath, 'package.json');
-    if (!fs.existsSync(packageJsonPath)) {
-      return {
-        name: 'pdfjs-dist',
-        ok: false,
-        message: 'pdfjs-dist package.json not found',
-        details: 'Run: npm install pdfjs-dist',
-      };
-    }
-
-    // Read version from package.json
+    const packageJsonPath = localRequire.resolve('@hyzyla/pdfium/package.json');
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
     const version = packageJson.version ?? 'unknown';
 
     return {
-      name: 'pdfjs-dist',
+      name: '@hyzyla/pdfium',
       ok: true,
-      message: `pdfjs-dist ${version} installed`,
+      message: `@hyzyla/pdfium ${version} installed`,
     };
   } catch {
     return {
-      name: 'pdfjs-dist',
+      name: '@hyzyla/pdfium',
       ok: false,
-      message: 'pdfjs-dist not found',
-      details: 'Run: npm install pdfjs-dist',
+      message: '@hyzyla/pdfium not found',
+      details: 'Run: npm install @hyzyla/pdfium',
     };
   }
 }
 
 /**
- * Check if canvas package is installed and native bindings work.
+ * Check if sharp is installed and working.
  */
-async function checkCanvas(): Promise<CheckResult> {
-  // First, check if canvas package exists without loading it
-  let canvasPath: string;
+async function checkSharp(): Promise<CheckResult> {
   let version = 'unknown';
 
   try {
-    canvasPath = localRequire.resolve('canvas');
+    const packageJsonPath = localRequire.resolve('sharp/package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+    version = packageJson.version ?? 'unknown';
   } catch {
     return {
-      name: 'canvas',
+      name: 'sharp',
       ok: false,
-      message: 'canvas package not installed',
-      details: 'Run: npm install canvas',
+      message: 'sharp package not installed',
+      details: 'Run: npm install sharp',
     };
   }
 
-  // Get canvas version
   try {
-    const canvasPackagePath = localRequire.resolve('canvas/package.json');
-    const canvasPackage = JSON.parse(fs.readFileSync(canvasPackagePath, 'utf-8'));
-    version = canvasPackage.version ?? 'unknown';
-  } catch {
-    // Ignore version detection errors
-  }
+    // Try to actually load and use sharp
+    const sharp = await import('sharp');
 
-  // Check if native bindings exist
-  const canvasDir = path.dirname(canvasPath);
-  const bindingsPath = path.join(canvasDir, 'build', 'Release', 'canvas.node');
+    // Create a simple test image to verify it works
+    const testBuffer = await sharp
+      .default(Buffer.from([255, 0, 0, 255]), {
+        raw: { width: 1, height: 1, channels: 4 },
+      })
+      .png()
+      .toBuffer();
 
-  if (!fs.existsSync(bindingsPath)) {
-    // Also check for prebuild bindings location
-    const prebuildPath = path.join(canvasDir, 'prebuilds');
-    const hasPrebuild = fs.existsSync(prebuildPath);
-
-    if (!hasPrebuild) {
+    if (!testBuffer || testBuffer.length === 0) {
       return {
-        name: 'canvas',
+        name: 'sharp',
         ok: false,
-        message: `canvas ${version} installed but native bindings not built`,
-        details: `Native dependencies missing. Install them first:
-  macOS: brew install pkg-config cairo pango libpng jpeg giflib librsvg
-  Ubuntu/Debian: sudo apt-get install build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
-  Alpine: apk add build-base g++ cairo-dev jpeg-dev pango-dev giflib-dev
-
-Then rebuild canvas: npm rebuild canvas`,
+        message: `sharp ${version} installed but image processing failed`,
+        details: 'Try reinstalling sharp: npm rebuild sharp',
       };
     }
-  }
-
-  // Try to actually load and use canvas
-  try {
-    const canvas = await import('canvas');
-
-    // Try to create a small canvas to verify native bindings work
-    const testCanvas = canvas.createCanvas(10, 10);
-    const ctx = testCanvas.getContext('2d');
-
-    // Draw something to verify it works
-    ctx.fillStyle = 'red';
-    ctx.fillRect(0, 0, 10, 10);
-
-    // Try to export to verify encoding works
-    testCanvas.toBuffer('image/png');
 
     return {
-      name: 'canvas',
+      name: 'sharp',
       ok: true,
-      message: `canvas ${version} installed with working native bindings`,
+      message: `sharp ${version} installed with working native bindings`,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
-    // Check for common native binding errors
-    if (
-      errorMessage.includes('Could not find') ||
-      errorMessage.includes('not found') ||
-      errorMessage.includes('canvas.node')
-    ) {
-      return {
-        name: 'canvas',
-        ok: false,
-        message: `canvas ${version} native bindings failed to load`,
-        details: `Native dependencies missing. Install them first:
-  macOS: brew install pkg-config cairo pango libpng jpeg giflib librsvg
-  Ubuntu/Debian: sudo apt-get install build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
-  Alpine: apk add build-base g++ cairo-dev jpeg-dev pango-dev giflib-dev
-
-Then reinstall canvas: npm rebuild canvas`,
-      };
-    }
-
     return {
-      name: 'canvas',
+      name: 'sharp',
       ok: false,
-      message: `canvas failed: ${errorMessage}`,
-      details: 'Check that native dependencies are installed correctly.',
+      message: `sharp ${version} failed to load: ${errorMessage}`,
+      details: 'Try reinstalling sharp: npm rebuild sharp',
     };
   }
 }
 
 /**
- * Check if CMap files exist for CJK font support.
+ * Check if PDFium WASM module can be initialized.
  */
-function checkCMapFiles(): CheckResult {
+async function checkPdfiumWasm(): Promise<CheckResult> {
   try {
-    const cMapUrl = getCMapUrl();
+    const { PDFiumLibrary } = await import('@hyzyla/pdfium');
+    const library = await PDFiumLibrary.init();
 
-    if (!fs.existsSync(cMapUrl)) {
+    // Verify library is working by checking it's not null
+    if (!library) {
       return {
-        name: 'CMap files',
+        name: 'PDFium WASM',
         ok: false,
-        message: 'CMap directory not found',
-        details: `Expected at: ${cMapUrl}
-Reinstall pdfjs-dist: npm install pdfjs-dist`,
+        message: 'PDFium WASM initialization returned null',
+        details: 'Try reinstalling @hyzyla/pdfium',
       };
     }
-
-    // Check for some common CMap files (pdfjs-dist uses .bcmap binary format)
-    const requiredCMaps = ['UniJIS-UTF16-H.bcmap', 'UniGB-UTF16-H.bcmap', 'UniKS-UTF16-H.bcmap'];
-    const missingCMaps: string[] = [];
-
-    for (const cmap of requiredCMaps) {
-      const cmapPath = path.join(cMapUrl, cmap);
-      if (!fs.existsSync(cmapPath)) {
-        missingCMaps.push(cmap);
-      }
-    }
-
-    if (missingCMaps.length > 0) {
-      return {
-        name: 'CMap files',
-        ok: false,
-        message: `Missing CMap files: ${missingCMaps.join(', ')}`,
-        details: 'Reinstall pdfjs-dist: npm install pdfjs-dist',
-      };
-    }
-
-    // Count total CMap files
-    const files = fs.readdirSync(cMapUrl);
-    const cmapCount = files.filter((f) => f.endsWith('.bcmap')).length;
 
     return {
-      name: 'CMap files',
+      name: 'PDFium WASM',
       ok: true,
-      message: `${cmapCount} CMap files found (CJK font support ready)`,
+      message: 'PDFium WASM module initialized successfully',
     };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
     return {
-      name: 'CMap files',
+      name: 'PDFium WASM',
       ok: false,
-      message: 'Failed to check CMap files',
-      details: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
-
-/**
- * Check if standard font files exist.
- */
-function checkStandardFonts(): CheckResult {
-  try {
-    const fontUrl = getStandardFontDataUrl();
-
-    if (!fs.existsSync(fontUrl)) {
-      return {
-        name: 'Standard fonts',
-        ok: false,
-        message: 'Standard fonts directory not found',
-        details: `Expected at: ${fontUrl}
-Reinstall pdfjs-dist: npm install pdfjs-dist`,
-      };
-    }
-
-    // Check for some standard font files (pdfjs-dist uses Foxit and Liberation fonts)
-    const requiredFonts = [
-      'FoxitSerif.pfb',
-      'FoxitSymbol.pfb',
-      'FoxitDingbats.pfb',
-      'LiberationSans-Regular.ttf',
-    ];
-    const missingFonts: string[] = [];
-
-    for (const font of requiredFonts) {
-      const fontPath = path.join(fontUrl, font);
-      if (!fs.existsSync(fontPath)) {
-        missingFonts.push(font);
-      }
-    }
-
-    if (missingFonts.length > 0) {
-      return {
-        name: 'Standard fonts',
-        ok: false,
-        message: `Missing font files: ${missingFonts.join(', ')}`,
-        details: 'Reinstall pdfjs-dist: npm install pdfjs-dist',
-      };
-    }
-
-    // Count total font files (excluding LICENSE files)
-    const files = fs.readdirSync(fontUrl);
-    const fontCount = files.filter((f) => f.endsWith('.pfb') || f.endsWith('.ttf')).length;
-
-    return {
-      name: 'Standard fonts',
-      ok: true,
-      message: `${fontCount} standard font files found`,
-    };
-  } catch (error) {
-    return {
-      name: 'Standard fonts',
-      ok: false,
-      message: 'Failed to check standard fonts',
-      details: error instanceof Error ? error.message : String(error),
+      message: `PDFium WASM initialization failed: ${errorMessage}`,
+      details: 'Check Node.js version compatibility and try reinstalling @hyzyla/pdfium',
     };
   }
 }
 
 /**
  * Check if PDF rendering actually works by creating and rendering a test PDF.
- * This uses dynamic imports exclusively to avoid loading canvas at module init time.
- * @param canvasOk - Whether the canvas check passed
+ * @param pdfiumOk - Whether the PDFium check passed
+ * @param sharpOk - Whether the sharp check passed
  */
-async function checkPdfRendering(canvasOk: boolean): Promise<CheckResult> {
-  // Skip rendering test if canvas is not working
-  if (!canvasOk) {
+async function checkPdfRendering(pdfiumOk: boolean, sharpOk: boolean): Promise<CheckResult> {
+  // Skip rendering test if dependencies are not working
+  if (!(pdfiumOk && sharpOk)) {
     return {
       name: 'PDF rendering',
       ok: false,
-      message: 'Skipped (canvas not available)',
-      details: 'Fix canvas installation first, then re-run doctor.',
+      message: 'Skipped (dependencies not available)',
+      details: 'Fix @hyzyla/pdfium and sharp installation first, then re-run doctor.',
     };
   }
 
   try {
-    // Dynamic imports to avoid issues if packages are missing
-    // We use the raw dependencies here instead of importing from ./index.js
-    // to avoid bundling canvas at the top level
+    // Dynamic imports
     const { PDFDocument, StandardFonts } = await import('pdf-lib');
-    const canvas = await import('canvas');
-    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const { PDFiumLibrary } = await import('@hyzyla/pdfium');
+    const sharp = await import('sharp');
 
     // Create a minimal test PDF
     const pdfDoc = await PDFDocument.create();
@@ -391,43 +244,32 @@ async function checkPdfRendering(canvasOk: boolean): Promise<CheckResult> {
     page.drawText('Test', { x: 10, y: 50, size: 12, font });
     const pdfBytes = await pdfDoc.save();
 
-    // Load PDF using pdfjs-dist directly
-    const loadingTask = pdfjsLib.getDocument({
-      data: new Uint8Array(pdfBytes),
-      isEvalSupported: false,
-      cMapUrl: getCMapUrl(),
-      cMapPacked: true,
-      standardFontDataUrl: getStandardFontDataUrl(),
-    });
-    const pdfDocument = await loadingTask.promise;
+    // Load and render using PDFium
+    const library = await PDFiumLibrary.init();
+    const document = await library.loadDocument(new Uint8Array(pdfBytes));
+    const pdfPage = document.getPage(0);
 
-    // Render first page
-    const pdfPage = await pdfDocument.getPage(1);
-    const viewport = pdfPage.getViewport({ scale: 1.0 });
-    const testCanvas = canvas.createCanvas(viewport.width, viewport.height);
-    const context = testCanvas.getContext('2d');
+    // Render page
+    const image = await pdfPage.render({ render: 'bitmap', scale: 1.0 });
+    const { data, width, height } = image;
 
-    await pdfPage.render({
-      // biome-ignore lint/suspicious/noExplicitAny: pdfjs-dist types are not fully compatible with canvas
-      canvasContext: context as any,
-      viewport,
-    }).promise;
-
-    // Try to export as PNG
-    const buffer = testCanvas.toBuffer('image/png');
-    const width = Math.round(viewport.width);
-    const height = Math.round(viewport.height);
+    // Convert to PNG using sharp
+    const buffer = await sharp
+      .default(Buffer.from(data), {
+        raw: { width, height, channels: 4 },
+      })
+      .png()
+      .toBuffer();
 
     // Cleanup
-    pdfPage.cleanup();
-    await pdfDocument.destroy();
+    document.destroy();
 
     if (!buffer || buffer.length === 0) {
       return {
         name: 'PDF rendering',
         ok: false,
         message: 'PDF rendering produced empty output',
-        details: 'Check canvas native bindings and dependencies.',
+        details: 'Check @hyzyla/pdfium and sharp installation.',
       };
     }
 
@@ -486,18 +328,18 @@ export async function runDoctor(): Promise<DoctorResult> {
 
   // Synchronous checks
   checks.push(checkNodeVersion());
-  checks.push(checkPdfjsDist());
+  checks.push(checkPdfium());
 
-  // Canvas check (required for rendering)
-  const canvasResult = await checkCanvas();
-  checks.push(canvasResult);
+  // Sharp check (required for image conversion)
+  const sharpResult = await checkSharp();
+  checks.push(sharpResult);
 
-  // More checks
-  checks.push(checkCMapFiles());
-  checks.push(checkStandardFonts());
+  // PDFium WASM check
+  const pdfiumWasmResult = await checkPdfiumWasm();
+  checks.push(pdfiumWasmResult);
 
-  // PDF rendering check (depends on canvas)
-  checks.push(await checkPdfRendering(canvasResult.ok));
+  // PDF rendering check (depends on both)
+  checks.push(await checkPdfRendering(pdfiumWasmResult.ok, sharpResult.ok));
 
   const allPassed = checks.every((check) => check.ok);
 

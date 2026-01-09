@@ -1,20 +1,19 @@
 /**
- * PDF Document implementation using pdfjs-dist.
+ * PDF Document implementation using PDFium.
  *
  * This module contains the internal implementation of the PDF document
- * handling. It uses Mozilla's pdf.js library for PDF parsing and rendering.
+ * handling. It uses PDFium (via @hyzyla/pdfium) for PDF parsing and rendering,
+ * which provides stable TrueType embedded font support.
  *
  * @module pdf-document
  * @internal
  */
 
 import fs from 'node:fs/promises';
-import { createCanvas } from 'canvas';
-import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
-// Use legacy build for Node.js compatibility
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { type PDFiumDocument, PDFiumLibrary } from '@hyzyla/pdfium';
+import sharp from 'sharp';
 
-import { DEFAULT_RENDER_OPTIONS, getCMapUrl, getStandardFontDataUrl } from './config.js';
+import { DEFAULT_RENDER_OPTIONS } from './config.js';
 import type {
   PageRange,
   PdfDocument,
@@ -26,19 +25,38 @@ import type {
 import { PdfError } from './types.js';
 
 /**
+ * Cached PDFium library instance.
+ * @internal
+ */
+let libraryInstance: PDFiumLibrary | null = null;
+
+/**
+ * Gets or initializes the PDFium library instance.
+ *
+ * @returns Promise resolving to the PDFium library instance
+ * @internal
+ */
+async function getLibrary(): Promise<PDFiumLibrary> {
+  if (!libraryInstance) {
+    libraryInstance = await PDFiumLibrary.init();
+  }
+  return libraryInstance;
+}
+
+/**
  * Internal implementation of the {@link PdfDocument} interface.
  *
- * This class wraps pdfjs-dist's PDFDocumentProxy and provides a
+ * This class wraps PDFium's document handling and provides a
  * simpler, memory-efficient API for rendering PDF pages to images.
  *
  * @internal This class is not part of the public API. Use {@link openPdf} instead.
  */
 export class PdfDocumentImpl implements PdfDocument {
   /**
-   * The underlying pdfjs-dist document proxy.
+   * The underlying PDFium document.
    * @internal
    */
-  private document: PDFDocumentProxy;
+  private document: PDFiumDocument;
 
   /**
    * Whether the document has been closed.
@@ -49,10 +67,10 @@ export class PdfDocumentImpl implements PdfDocument {
   /**
    * Creates a new PdfDocumentImpl instance.
    *
-   * @param document - The pdfjs-dist document proxy
+   * @param document - The PDFium document
    * @internal
    */
-  private constructor(document: PDFDocumentProxy) {
+  private constructor(document: PDFiumDocument) {
     this.document = document;
   }
 
@@ -74,21 +92,13 @@ export class PdfDocumentImpl implements PdfDocument {
     options: PdfOpenOptions = {},
   ): Promise<PdfDocumentImpl> {
     const data = await resolveInput(input);
-
-    const loadingTask = pdfjsLib.getDocument({
-      data,
-      isEvalSupported: false,
-      cMapUrl: options.cMapPath ?? getCMapUrl(),
-      cMapPacked: true,
-      standardFontDataUrl: options.standardFontPath ?? getStandardFontDataUrl(),
-      password: options.password,
-    });
+    const library = await getLibrary();
 
     try {
-      const document = await loadingTask.promise;
+      const document = await library.loadDocument(data, options.password);
       return new PdfDocumentImpl(document);
     } catch (error) {
-      throw wrapPdfjsError(error);
+      throw wrapPdfiumError(error);
     }
   }
 
@@ -100,7 +110,7 @@ export class PdfDocumentImpl implements PdfDocument {
    */
   public get pageCount(): number {
     this.ensureOpen();
-    return this.document.numPages;
+    return this.document.getPageCount();
   }
 
   /**
@@ -159,13 +169,14 @@ export class PdfDocumentImpl implements PdfDocument {
    * This method is idempotent - calling it multiple times is safe.
    * After calling this method, the document cannot be used anymore.
    */
+  // biome-ignore lint/suspicious/useAwait: Interface requires Promise<void> for consistency
   public async close(): Promise<void> {
     if (this.closed) {
       return;
     }
 
     this.closed = true;
-    await this.document.destroy();
+    this.document.destroy();
   }
 
   /**
@@ -243,8 +254,8 @@ export class PdfDocumentImpl implements PdfDocument {
   /**
    * Internal method to render a single page.
    *
-   * This method handles the actual rendering using pdfjs-dist and canvas.
-   * It creates a canvas, renders the page, and converts it to an image buffer.
+   * This method handles the actual rendering using PDFium and sharp.
+   * It renders the page to raw bitmap and converts it to an image buffer.
    *
    * @param pageNumber - Page number to render (1-indexed, already validated)
    * @param options - Rendering options
@@ -260,35 +271,36 @@ export class PdfDocumentImpl implements PdfDocument {
     const format = options.format ?? DEFAULT_RENDER_OPTIONS.format;
     const quality = options.quality ?? DEFAULT_RENDER_OPTIONS.quality;
 
-    let page: PDFPageProxy | null = null;
-
     try {
-      page = await this.document.getPage(pageNumber);
-      const viewport = page.getViewport({ scale });
+      // PDFium uses 0-indexed pages
+      const page = this.document.getPage(pageNumber - 1);
 
-      // Create canvas for this page
-      const canvas = createCanvas(viewport.width, viewport.height);
-      const context = canvas.getContext('2d');
+      // Render to raw RGBA bitmap
+      const image = await page.render({ render: 'bitmap', scale });
+      const { data, width, height } = image;
 
-      // Render page to canvas
-      await page.render({
-        // biome-ignore lint/suspicious/noExplicitAny: pdfjs-dist types are not fully compatible with canvas
-        canvasContext: context as any,
-        viewport,
-      }).promise;
+      // Convert raw RGBA to image format using sharp
+      const sharpInstance = sharp(Buffer.from(data), {
+        raw: {
+          width,
+          height,
+          channels: 4,
+        },
+      });
 
-      // Convert to buffer
-      const buffer =
-        format === 'jpeg'
-          ? canvas.toBuffer('image/jpeg', { quality })
-          : canvas.toBuffer('image/png');
+      let buffer: Buffer;
+      if (format === 'jpeg') {
+        buffer = await sharpInstance.jpeg({ quality: Math.round(quality * 100) }).toBuffer();
+      } else {
+        buffer = await sharpInstance.png().toBuffer();
+      }
 
       return {
         pageNumber,
         totalPages: this.pageCount,
         buffer,
-        width: Math.round(viewport.width),
-        height: Math.round(viewport.height),
+        width,
+        height,
       };
     } catch (error) {
       throw new PdfError(
@@ -296,17 +308,12 @@ export class PdfDocumentImpl implements PdfDocument {
         'RENDER_FAILED',
         error,
       );
-    } finally {
-      // Clean up page resources
-      if (page) {
-        page.cleanup();
-      }
     }
   }
 }
 
 /**
- * Resolves various input types to a Uint8Array suitable for pdfjs-dist.
+ * Resolves various input types to a Uint8Array suitable for PDFium.
  *
  * This function handles:
  * - File paths (reads the file from disk)
@@ -351,36 +358,35 @@ async function resolveInput(input: PdfInput): Promise<Uint8Array> {
 }
 
 /**
- * Converts pdfjs-dist errors to {@link PdfError} instances.
+ * Converts PDFium errors to {@link PdfError} instances.
  *
  * This function analyzes error messages to determine the appropriate
  * error code and creates a consistent error format.
  *
- * Error detection:
- * - "Invalid PDF" → `INVALID_PDF`
- * - "password" + "incorrect" → `INVALID_PASSWORD`
- * - "password" → `PASSWORD_REQUIRED`
- * - Other errors → `UNKNOWN`
- *
- * @param error - The error thrown by pdfjs-dist
+ * @param error - The error thrown by PDFium
  * @returns A PdfError with the appropriate code
  *
  * @internal
  */
-function wrapPdfjsError(error: unknown): PdfError {
+function wrapPdfiumError(error: unknown): PdfError {
   if (error instanceof PdfError) {
     return error;
   }
 
   const message = error instanceof Error ? error.message : String(error);
+  const lowerMessage = message.toLowerCase();
 
   // Detect specific error types
-  if (message.includes('Invalid PDF')) {
+  if (
+    lowerMessage.includes('invalid') ||
+    lowerMessage.includes('not a pdf') ||
+    lowerMessage.includes('format')
+  ) {
     return new PdfError('Invalid PDF file', 'INVALID_PDF', error);
   }
 
-  if (message.includes('password')) {
-    if (message.includes('incorrect')) {
+  if (lowerMessage.includes('password')) {
+    if (lowerMessage.includes('incorrect') || lowerMessage.includes('wrong')) {
       return new PdfError('Incorrect password', 'INVALID_PASSWORD', error);
     }
     return new PdfError('Password required to open this PDF', 'PASSWORD_REQUIRED', error);

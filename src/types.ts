@@ -35,8 +35,7 @@ export type PdfInput = string | Buffer | Uint8Array | ArrayBuffer;
 /**
  * Options for opening a PDF document.
  *
- * All options are optional. The library automatically detects
- * font paths from the pdfjs-dist installation.
+ * All options are optional. PDFium handles fonts automatically.
  *
  * @example
  * ```typescript
@@ -47,36 +46,9 @@ export type PdfInput = string | Buffer | Uint8Array | ArrayBuffer;
  * const pdf = await openPdf('/path/to/encrypted.pdf', {
  *   password: 'secret'
  * })
- *
- * // Custom font paths (rarely needed)
- * const pdf = await openPdf('/path/to/document.pdf', {
- *   cMapPath: '/custom/cmaps/',
- *   standardFontPath: '/custom/fonts/'
- * })
  * ```
  */
 export interface PdfOpenOptions {
-  /**
-   * Custom path to CMap files for CJK (Chinese, Japanese, Korean) font support.
-   *
-   * CMap files are required for proper text rendering in CJK PDFs.
-   * If not specified, automatically detected from pdfjs-dist package.
-   *
-   * @defaultValue Auto-detected from pdfjs-dist installation
-   */
-  cMapPath?: string;
-
-  /**
-   * Custom path to standard font files.
-   *
-   * Standard fonts (like Helvetica, Times Roman) are required for
-   * PDFs that reference these fonts without embedding them.
-   * If not specified, automatically detected from pdfjs-dist package.
-   *
-   * @defaultValue Auto-detected from pdfjs-dist installation
-   */
-  standardFontPath?: string;
-
   /**
    * Password for opening encrypted PDFs.
    *

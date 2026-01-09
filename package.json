@@ -53,20 +53,6 @@
   ],
   "author": "",
   "license": "MIT",
-  "dependencies": {
-    "pdfjs-dist": "^4.10.38"
-  },
-  "peerDependencies": {
-    "canvas": "^2.11.2 || ^3.0.0"
-  },
-  "peerDependenciesMeta": {
-    "canvas": {
-      "optional": false
-    }
-  },
-  "optionalDependencies": {
-    "canvas": "^3.1.0"
-  },
   "devDependencies": {
     "@biomejs/biome": "^2.3.10",
     "@changesets/changelog-github": "^0.5.2",
@@ -99,5 +85,9 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": []
+  },
+  "dependencies": {
+    "@hyzyla/pdfium": "^2.1.9",
+    "sharp": "^0.34.5"
   }
 }

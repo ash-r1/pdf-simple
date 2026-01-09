@@ -1,19 +1,20 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-// Check if canvas is available before running tests
-// Canvas requires system dependencies (libcairo, libpango, etc.)
-let canvasAvailable = false;
+// Check if PDFium and sharp are available before running tests
+let pdfiumAvailable = false;
 try {
-  // Try to import canvas to check if native bindings are available
-  await import('canvas');
-  canvasAvailable = true;
-} catch {
-  console.warn('Canvas not available - skipping rendering tests');
+  // Try to import PDFium and sharp to check if they work
+  const { PDFiumLibrary } = await import('@hyzyla/pdfium');
+  await import('sharp');
+  await PDFiumLibrary.init();
+  pdfiumAvailable = true;
+} catch (error) {
+  console.warn('PDFium or sharp not available - skipping rendering tests:', error);
 }
 
-// Only run tests if canvas is available
-const describeWithCanvas = canvasAvailable ? describe : describe.skip;
+// Only run tests if PDFium is available
+const describeWithPdfium: typeof describe = pdfiumAvailable ? describe : describe.skip;
 
 // Generate test PDFs
 let singlePagePdf: Uint8Array;
@@ -50,7 +51,7 @@ beforeAll(async () => {
   multiPagePdf = await doc2.save();
 });
 
-describeWithCanvas('openPdf', () => {
+describeWithPdfium('openPdf', () => {
   it('should open a PDF from Uint8Array', async () => {
     const { openPdf } = await import('./index.js');
     const pdf = await openPdf(singlePagePdf);
@@ -90,7 +91,7 @@ describeWithCanvas('openPdf', () => {
   });
 });
 
-describeWithCanvas('pageCount', () => {
+describeWithPdfium('pageCount', () => {
   it('should return correct page count for single page PDF', async () => {
     const { openPdf } = await import('./index.js');
     const pdf = await openPdf(singlePagePdf);
@@ -106,7 +107,7 @@ describeWithCanvas('pageCount', () => {
   });
 });
 
-describeWithCanvas('renderPage', () => {
+describeWithPdfium('renderPage', () => {
   it('should render a single page to JPEG', async () => {
     const { openPdf } = await import('./index.js');
     const pdf = await openPdf(singlePagePdf);
@@ -169,7 +170,7 @@ describeWithCanvas('renderPage', () => {
   });
 });
 
-describeWithCanvas('renderPages', () => {
+describeWithPdfium('renderPages', () => {
   it('should render all pages using async generator', async () => {
     const { openPdf } = await import('./index.js');
     const pdf = await openPdf(multiPagePdf);
@@ -218,7 +219,7 @@ describeWithCanvas('renderPages', () => {
   });
 });
 
-describeWithCanvas('renderPdfPages', () => {
+describeWithPdfium('renderPdfPages', () => {
   it('should render all pages and auto-close', async () => {
     const { renderPdfPages } = await import('./index.js');
     const pages: number[] = [];
@@ -231,7 +232,7 @@ describeWithCanvas('renderPdfPages', () => {
   });
 });
 
-describeWithCanvas('getPageCount', () => {
+describeWithPdfium('getPageCount', () => {
   it('should return page count without rendering', async () => {
     const { getPageCount } = await import('./index.js');
     const count = await getPageCount(multiPagePdf);
@@ -239,7 +240,7 @@ describeWithCanvas('getPageCount', () => {
   });
 });
 
-describeWithCanvas('AsyncDisposable', () => {
+describeWithPdfium('AsyncDisposable', () => {
   it('should support await using syntax', async () => {
     const { openPdf } = await import('./index.js');
     // Using manual Symbol.asyncDispose for compatibility
@@ -249,7 +250,7 @@ describeWithCanvas('AsyncDisposable', () => {
   });
 });
 
-describeWithCanvas('document lifecycle', () => {
+describeWithPdfium('document lifecycle', () => {
   it('should throw DOCUMENT_CLOSED after close', async () => {
     const { openPdf, PdfError } = await import('./index.js');
     const pdf = await openPdf(singlePagePdf);
