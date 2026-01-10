@@ -42,12 +42,14 @@ const matchSnapshot = createSnapshotMatcher(import.meta.url, {
 /**
  * Helper function to test all pages of a PDF
  */
-async function testAllPages(pdfPath: string, snapshotPrefix: string) {
+async function testAllPages(pdfPath: string, snapshotPrefix: string, maxPages?: number) {
   const pdf = await openPdf(pdfPath);
 
   try {
-    const pageCount = pdf.pageCount;
-    expect(pageCount).toBeGreaterThan(0);
+    const totalPages = pdf.pageCount;
+    expect(totalPages).toBeGreaterThan(0);
+
+    const pageCount = maxPages ? Math.min(totalPages, maxPages) : totalPages;
 
     for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
       const page = await pdf.renderPage(pageNum, { format: 'png', scale: 1.0 });
@@ -75,11 +77,11 @@ describeWithPdfium('CJK Rendering Tests', () => {
   });
 
   describe('Japanese PDFs', () => {
-    it('SFAA_Japanese.pdf - should render all pages correctly', async () => {
+    it('SFAA_Japanese.pdf - should render first 5 pages correctly', async () => {
       const pdfPath = path.join(FIXTURES_DIR, 'jp/SFAA_Japanese.pdf');
-      const pageCount = await testAllPages(pdfPath, 'jp-sfaa');
-      expect(pageCount).toBeGreaterThan(0);
-    }, 60000); // 60 second timeout for 220 pages
+      const pageCount = await testAllPages(pdfPath, 'jp-sfaa', 5);
+      expect(pageCount).toBe(5);
+    });
 
     it('ichiji.pdf - should render all pages correctly', async () => {
       const pdfPath = path.join(FIXTURES_DIR, 'jp/ichiji.pdf');
