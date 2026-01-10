@@ -145,3 +145,6 @@ website/src/content/docs/api/
 
 # Keep claude settings
 !.claude/settings.json
+
+# pnpm store
+.pnpm-store/
