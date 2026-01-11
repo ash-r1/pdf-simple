@@ -1,0 +1,188 @@
+%PDF-1.7
+%‚„œ”
+
+1 0 obj
+<<
+  /Type /Catalog
+  /Pages 2 0 R
+>>
+endobj
+
+2 0 obj
+<<
+  /Type /Pages
+  /Kids [3 0 R]
+  /Count 1
+>>
+endobj
+
+3 0 obj
+<<
+  /Type /Page
+  /Parent 2 0 R
+  /MediaBox [0 0 612 792]
+  /Contents 4 0 R
+  /Resources <<
+    /Font <<
+      /F1 5 0 R
+    >>
+  >>
+>>
+endobj
+
+4 0 obj
+<<
+  /Length 427
+>>
+stream
+BT
+/F1 14 Tf
+50 732 Td
+0 -22 Td
+<434A4B20426173696320552B344530302D552B39464646> Tj
+0 -22 Td
+<000100020003000400050006000700080009000A> Tj
+0 -22 Td
+<000B000C000D000E000F001000110012> Tj
+0 -22 Td
+<0013000E001400150016001700180019> Tj
+0 -22 Td
+<001A001B001C001D001E001F00200021> Tj
+0 -22 Td
+<00220023002400250026002700280029002A> Tj
+0 -22 Td
+<002B0023002C002D002E002F00300031> Tj
+0 -22 Td
+<00320033003400350036003700380039> Tj
+ET
+endstream
+endobj
+
+5 0 obj
+<<
+  /Type /Font
+  /Subtype /Type0
+  /BaseFont /MS-Gothic
+  /Encoding /Identity-H
+  /DescendantFonts [6 0 R]
+  /ToUnicode 7 0 R
+>>
+endobj
+
+6 0 obj
+<<
+  /Type /Font
+  /Subtype /CIDFontType2
+  /BaseFont /MS-Gothic
+  /CIDSystemInfo <<
+    /Registry (Adobe)
+    /Ordering (Japan1)
+    /Supplement 0
+  >>
+  /DW 1000
+>>
+endobj
+
+7 0 obj
+<<
+  /Length 1128
+>>
+stream
+/CIDInit /ProcSet findresource begin
+12 dict begin
+begincmap
+/CIDSystemInfo <<
+  /Registry (Adobe)
+  /Ordering (UCS)
+  /Supplement 0
+>> def
+/CMapName /Adobe-Identity-UCS def
+/CMapType 2 def
+1 begincodespacerange
+<0001> <FFFF>
+endcodespacerange
+57 beginbfchar
+<0001> <4E00>
+<0002> <4E8C>
+<0003> <4E09>
+<0004> <56DB>
+<0005> <4E94>
+<0006> <516D>
+<0007> <4E03>
+<0008> <516B>
+<0009> <4E5D>
+<000A> <5341>
+<000B> <65E5>
+<000C> <672C>
+<000D> <8A9E>
+<000E> <6587>
+<000F> <5B57>
+<0010> <30C6>
+<0011> <30B9>
+<0012> <30C8>
+<0013> <4E2D>
+<0014> <7B80>
+<0015> <4F53>
+<0016> <7E41>
+<0017> <9AD4>
+<0018> <6D4B>
+<0019> <8BD5>
+<001A> <D55C>
+<001B> <AD6D>
+<001C> <C5B4>
+<001D> <BB38>
+<001E> <C790>
+<001F> <D14C>
+<0020> <C2A4>
+<0021> <D2B8>
+<0022> <6771>
+<0023> <4EAC>
+<0024> <5927>
+<0025> <962A>
+<0026> <540D>
+<0027> <53E4>
+<0028> <5C4B>
+<0029> <798F>
+<002A> <5CA1>
+<002B> <5317>
+<002C> <4E0A>
+<002D> <6D77>
+<002E> <5E7F>
+<002F> <5DDE>
+<0030> <6DF1>
+<0031> <5733>
+<0032> <4EBA>
+<0033> <53E3>
+<0034> <6642>
+<0035> <9593>
+<0036> <5834>
+<0037> <6240>
+<0038> <4E8B>
+<0039> <7269>
+endbfchar
+endcmap
+CMapName currentdict /CMap defineresource pop
+end
+end
+endstream
+endobj
+
+xref
+0 8
+0000000000 65535 f
+0000000017 00000 n
+0000000075 00000 n
+0000000132 00000 n
+0000000292 00000 n
+0000000769 00000 n
+0000000909 00000 n
+00000001109 00000 n
+
+trailer
+<<
+  /Size 8
+  /Root 1 0 R
+>>
+startxref
+2287
+%%EOF

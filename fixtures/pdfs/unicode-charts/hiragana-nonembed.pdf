@@ -1,0 +1,197 @@
+%PDF-1.7
+%‚„œ”
+
+1 0 obj
+<<
+  /Type /Catalog
+  /Pages 2 0 R
+>>
+endobj
+
+2 0 obj
+<<
+  /Type /Pages
+  /Kids [3 0 R]
+  /Count 1
+>>
+endobj
+
+3 0 obj
+<<
+  /Type /Page
+  /Parent 2 0 R
+  /MediaBox [0 0 612 792]
+  /Contents 4 0 R
+  /Resources <<
+    /Font <<
+      /F1 5 0 R
+    >>
+  >>
+>>
+endobj
+
+4 0 obj
+<<
+  /Length 488
+>>
+stream
+BT
+/F1 14 Tf
+50 732 Td
+0 -22 Td
+<4869726167616E6120552B333034302D552B33303946> Tj
+0 -22 Td
+<00010002000300040005> Tj
+0 -22 Td
+<0006000700080009000A> Tj
+0 -22 Td
+<000B000C000D000E000F> Tj
+0 -22 Td
+<00100011001200130014> Tj
+0 -22 Td
+<00150016001700180019> Tj
+0 -22 Td
+<001A001B001C001D001E> Tj
+0 -22 Td
+<001F0020002100220023> Tj
+0 -22 Td
+<002400250026> Tj
+0 -22 Td
+<002700280029002A002B> Tj
+0 -22 Td
+<002C002D002E> Tj
+0 -22 Td
+<002F0030003100320033> Tj
+0 -22 Td
+<00340035003600370038> Tj
+ET
+endstream
+endobj
+
+5 0 obj
+<<
+  /Type /Font
+  /Subtype /Type0
+  /BaseFont /MS-Gothic
+  /Encoding /Identity-H
+  /DescendantFonts [6 0 R]
+  /ToUnicode 7 0 R
+>>
+endobj
+
+6 0 obj
+<<
+  /Type /Font
+  /Subtype /CIDFontType2
+  /BaseFont /MS-Gothic
+  /CIDSystemInfo <<
+    /Registry (Adobe)
+    /Ordering (Japan1)
+    /Supplement 0
+  >>
+  /DW 1000
+>>
+endobj
+
+7 0 obj
+<<
+  /Length 1114
+>>
+stream
+/CIDInit /ProcSet findresource begin
+12 dict begin
+begincmap
+/CIDSystemInfo <<
+  /Registry (Adobe)
+  /Ordering (UCS)
+  /Supplement 0
+>> def
+/CMapName /Adobe-Identity-UCS def
+/CMapType 2 def
+1 begincodespacerange
+<0001> <FFFF>
+endcodespacerange
+56 beginbfchar
+<0001> <3042>
+<0002> <3044>
+<0003> <3046>
+<0004> <3048>
+<0005> <304A>
+<0006> <304B>
+<0007> <304D>
+<0008> <304F>
+<0009> <3051>
+<000A> <3053>
+<000B> <3055>
+<000C> <3057>
+<000D> <3059>
+<000E> <305B>
+<000F> <305D>
+<0010> <305F>
+<0011> <3061>
+<0012> <3064>
+<0013> <3066>
+<0014> <3068>
+<0015> <306A>
+<0016> <306B>
+<0017> <306C>
+<0018> <306D>
+<0019> <306E>
+<001A> <306F>
+<001B> <3072>
+<001C> <3075>
+<001D> <3078>
+<001E> <307B>
+<001F> <307E>
+<0020> <307F>
+<0021> <3080>
+<0022> <3081>
+<0023> <3082>
+<0024> <3084>
+<0025> <3086>
+<0026> <3088>
+<0027> <3089>
+<0028> <308A>
+<0029> <308B>
+<002A> <308C>
+<002B> <308D>
+<002C> <308F>
+<002D> <3092>
+<002E> <3093>
+<002F> <304C>
+<0030> <304E>
+<0031> <3050>
+<0032> <3052>
+<0033> <3054>
+<0034> <3071>
+<0035> <3074>
+<0036> <3077>
+<0037> <307A>
+<0038> <307D>
+endbfchar
+endcmap
+CMapName currentdict /CMap defineresource pop
+end
+end
+endstream
+endobj
+
+xref
+0 8
+0000000000 65535 f
+0000000017 00000 n
+0000000075 00000 n
+0000000132 00000 n
+0000000292 00000 n
+0000000830 00000 n
+0000000970 00000 n
+00000001170 00000 n
+
+trailer
+<<
+  /Size 8
+  /Root 1 0 R
+>>
+startxref
+2334
+%%EOF
